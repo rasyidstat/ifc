@@ -1,0 +1,230 @@
+---
+title: "USAID's Intelligent Forecasting: Model Future Contraceptive Use"
+author: "Rasyid Ridha"
+output: 
+  html_document:
+    toc: true
+    theme: simplex
+    code_folding: hide
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, 
+  warning = FALSE, 
+  message = FALSE,
+  fig.path = "figs/"
+)
+```
+
+```{r library}
+library(lubridate)
+library(tidyverse)
+library(hrbrthemes)
+library(forcats)
+library(plotly)
+theme_set(theme_minimal())
+```
+
+```{r data}
+annual <- read_csv("data/raw/contraceptive_case_data_annual.csv")
+monthly <- read_csv("data/raw/contraceptive_case_data_monthly.csv")
+logistic <- read_csv("data/raw/contraceptive_logistics_data.csv")
+location <- read_csv("data/raw/service_delivery_site_data.csv")
+product <- read_csv("data/raw/product.csv")
+subm <- read_csv("data/raw/submission_format.csv")
+```
+
+## EDA
+
+### How many sites and products?
+
+From submission file, we get:
+
+* There are 1052 sites x products (should be 1716 sites x products ?)
+* There are 156 sites
+* There are 11 products
+
+From training data (logistics), we get:
+
+* There are 1357 sites x products (which means that 305 have no prediction in the last Q4 2019)
+* There are 156 sites
+* There are 11 products
+
+We have 45 observation from Jan 2016 to Sep 2019 (almost 4-year data)
+
+<details><summary>Detail</summary>
+
+```{r}
+subm %>% 
+  count(site_code, product_code) %>% 
+  nrow()
+```
+
+```{r}
+subm %>% 
+  count(site_code) %>% 
+  nrow()
+```
+
+```{r}
+subm %>% 
+  count(product_code) %>% 
+  nrow()
+```
+
+```{r}
+logistic %>% 
+  count(site_code, product_code) %>% 
+  nrow()
+```
+
+```{r}
+logistic %>% 
+  count(site_code) %>% 
+  nrow()
+```
+
+```{r}
+logistic %>% 
+  count(product_code) %>% 
+  nrow()
+```
+
+</details> 
+
+### Overall trend
+
+It always increases :)
+
+```{r}
+p <- logistic %>% 
+  group_by(year, month) %>% 
+  summarise(stock_distributed = sum(stock_distributed)) %>% 
+  ungroup() %>% 
+  mutate(dt = dmy(paste("1", month, year, sep = "-"))) %>% 
+  ggplot(aes(dt, stock_distributed)) +
+  geom_line()
+ggplotly(p)
+```
+
+### Monthly Trend {.tabset}
+
+#### Overall
+
+```{r}
+logistic %>% 
+  group_by(year, month) %>% 
+  summarise(stock_distributed = sum(stock_distributed)) %>% 
+  ungroup() %>% 
+  mutate(dt = dmy(paste("1", month, year, sep = "-"))) %>% 
+  ggplot(aes(month, stock_distributed, group = month)) +
+  geom_boxplot() +
+  scale_x_continuous(breaks = 1:12)
+```
+
+#### Adjusted %
+
+```{r}
+logistic %>% 
+  group_by(year, month) %>% 
+  summarise(stock_distributed = sum(stock_distributed)) %>% 
+  ungroup() %>% 
+  mutate(dt = dmy(paste("1", month, year, sep = "-"))) %>% 
+  # filter(year != 2019) %>% 
+  group_by(year) %>% 
+  mutate(day_in_month = days_in_month(dt),
+         stock_distributed_norm = stock_distributed / day_in_month * 30,
+         pct = stock_distributed_norm / sum(stock_distributed_norm)) %>% 
+  ungroup() %>% 
+  ggplot(aes(month, pct, group = month)) +
+  geom_boxplot() +
+  scale_x_continuous(breaks = 1:12) +
+  scale_y_continuous(labels = scales::percent)
+```
+
+#### Adjusted % (Exclude 2019)
+
+```{r}
+logistic %>% 
+  group_by(year, month) %>% 
+  summarise(stock_distributed = sum(stock_distributed)) %>% 
+  ungroup() %>% 
+  mutate(dt = dmy(paste("1", month, year, sep = "-"))) %>% 
+  filter(year != 2019) %>%
+  group_by(year) %>% 
+  mutate(day_in_month = days_in_month(dt),
+         stock_distributed_norm = stock_distributed / day_in_month * 30,
+         pct = stock_distributed_norm / sum(stock_distributed_norm)) %>% 
+  ungroup() %>% 
+  ggplot(aes(month, pct, group = month)) +
+  geom_boxplot() +
+  scale_x_continuous(breaks = 1:12) +
+  scale_y_continuous(labels = scales::percent)
+```
+
+### Product {.tabset}
+
+We have 11 products to explore!
+
+#### All-in-one
+
+```{r}
+p <- logistic %>% 
+  group_by(year, month, product_code) %>% 
+  summarise(stock_distributed = sum(stock_distributed)) %>% 
+  ungroup() %>% 
+  mutate(dt = dmy(paste("1", month, year, sep = "-"))) %>% 
+  left_join(product) %>% 
+  ggplot(aes(dt, stock_distributed, 
+             color = product_code,
+             text = paste0('product_type: ', product_type))) +
+  geom_line()
+ggplotly(p)
+```
+
+#### Split
+
+```{r}
+p <- logistic %>% 
+  group_by(year, month, product_code) %>% 
+  summarise(stock_distributed = sum(stock_distributed)) %>% 
+  ungroup() %>% 
+  mutate(dt = dmy(paste("1", month, year, sep = "-"))) %>% 
+  left_join(product) %>% 
+  ggplot(aes(dt, stock_distributed, 
+             color = product_code,
+             text = paste0('product_type: ', product_type))) +
+  geom_line() +
+  facet_wrap(~product_code, scales = "free")
+ggplotly(p)
+```
+
+### Spatial Data
+
+```{r}
+logistic %>% 
+  left_join(
+    location %>% 
+      select(-site_region, -site_district)
+  ) %>% 
+  group_by(site_code, site_longitude, site_latitude) %>% 
+  summarise(stock_distributed = sum(stock_distributed)) %>% 
+  ungroup() %>% 
+  ggplot(aes(site_longitude, site_latitude, size = stock_distributed)) +
+  geom_point(alpha = 0.7) +
+  theme(panel.grid = element_blank(),
+        legend.position = "bottom",
+        axis.text = element_blank(), 
+        axis.title = element_blank()) +
+  coord_cartesian()
+```
+
+## External Data
+
+* Population on the region (growth)
+* Fertility rate, birth rate during specific period
+* Spatial data
+* Weather
+
