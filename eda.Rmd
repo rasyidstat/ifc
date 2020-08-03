@@ -164,6 +164,27 @@ logistic %>%
   scale_y_continuous(labels = scales::percent)
 ```
 
+### Quarterly Trend {.tabset}
+
+```{r}
+logistic %>% 
+  group_by(year, month) %>% 
+  summarise(stock_distributed = sum(stock_distributed)) %>% 
+  ungroup() %>% 
+  mutate(q = month %% 3) %>%
+  mutate(dt = dmy(paste("1", month, year, sep = "-"))) %>% 
+  filter(year != 2019) %>%
+  group_by(year) %>% 
+  mutate(day_in_month = days_in_month(dt),
+         stock_distributed_norm = stock_distributed / day_in_month * 30,
+         pct = stock_distributed_norm / sum(stock_distributed_norm)) %>% 
+  ungroup() %>% 
+  ggplot(aes(q, pct, group = q)) +
+  geom_boxplot() +
+  scale_x_continuous(breaks = 1:12) +
+  scale_y_continuous(labels = scales::percent)
+```
+
 ### Product {.tabset}
 
 We have 11 products to explore!
