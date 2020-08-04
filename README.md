@@ -43,8 +43,9 @@ Additional information:
 ## Tasks
 
 - [x] EDA: MVP
+- [ ] EDA: Check data completeness
 - [ ] EDA: Deep EDA
-- [ ] Modeling: MVP (baseline)
+- [X] Modeling: MVP (baseline)
 - [ ] Modeling: single model (tree models)
 - [ ] External Data
 

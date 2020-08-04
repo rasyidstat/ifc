@@ -2,7 +2,7 @@
 # Metrics calculation -----------------------------------------------------
 # normalized rmse
 rmse <- function(pred, obs, na.rm = TRUE) {
-  caret::RMSE(pred, obs, na.rm = na.rm) / mean(obs, na.rm = na.rm)
+  caret::RMSE(pred, obs, na.rm = na.rm)
 }
 
 smape <- function(pred, obs, na.rm = TRUE, ...) {
