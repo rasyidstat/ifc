@@ -24,6 +24,7 @@ library(tidyverse)
 library(hrbrthemes)
 library(forcats)
 library(plotly)
+library(feather)
 theme_set(theme_minimal())
 ```
 
@@ -294,12 +295,71 @@ logistic %>%
 
 ## Deeper EDA
 
-### How 
+```{r}
+df_clean <- read_feather("data/clean/ifc_clean.feather")
+df_summary <- df_clean %>% 
+  group_by(site_code, product_code) %>% 
+  summarise(cnt = n(),
+            na_cnt = sum(isna),
+            zero_cnt = sum(ifelse(stock_distributed == 0, 1, 0), na.rm = TRUE),
+            zero_na_cnt = na_cnt + zero_cnt,
+            val_sum = sum(stock_distributed, na.rm = TRUE),
+            val_mean = mean(stock_distributed, na.rm = TRUE),
+            val_median = median(stock_distributed, na.rm = TRUE),
+            val_sd = sd(stock_distributed, na.rm = TRUE),
+            val_m1 = mean(ifelse(month(ds) == 1, stock_distributed, NA_real_), na.rm = TRUE) / val_mean,
+            val_m2 = mean(ifelse(month(ds) == 2, stock_distributed, NA_real_), na.rm = TRUE) / val_mean,
+            val_m3 = mean(ifelse(month(ds) == 3, stock_distributed, NA_real_), na.rm = TRUE) / val_mean,
+            val_m4 = mean(ifelse(month(ds) == 4, stock_distributed, NA_real_), na.rm = TRUE) / val_mean,
+            val_m5 = mean(ifelse(month(ds) == 5, stock_distributed, NA_real_), na.rm = TRUE) / val_mean,
+            val_m6 = mean(ifelse(month(ds) == 6, stock_distributed, NA_real_), na.rm = TRUE) / val_mean,
+            val_m7 = mean(ifelse(month(ds) == 7, stock_distributed, NA_real_), na.rm = TRUE) / val_mean,
+            val_m8 = mean(ifelse(month(ds) == 8, stock_distributed, NA_real_), na.rm = TRUE) / val_mean,
+            val_m9 = mean(ifelse(month(ds) == 9, stock_distributed, NA_real_), na.rm = TRUE) / val_mean,
+            val_m10 = mean(ifelse(month(ds) == 10, stock_distributed, NA_real_), na.rm = TRUE) / val_mean,
+            val_m11 = mean(ifelse(month(ds) == 11, stock_distributed, NA_real_), na.rm = TRUE) / val_mean,
+            val_m12 = mean(ifelse(month(ds) == 12, stock_distributed, NA_real_), na.rm = TRUE) / val_mean,
+            upper_outlier_cnt = sum(ifelse(stock_distributed >= val_mean + 3 * val_sd, 1, 0), na.rm = TRUE),
+            lower_outlier_cnt = sum(ifelse(stock_distributed <= val_mean - 3 * val_sd, 1, 0), na.rm = TRUE),
+            upper_outlier_cnt_2 = sum(ifelse(stock_distributed >= val_mean + 2.5 * val_sd, 1, 0), na.rm = TRUE),
+            lower_outlier_cnt_2 = sum(ifelse(stock_distributed <= val_mean - 2.5 * val_sd, 1, 0), na.rm = TRUE)) %>% 
+  ungroup()
+```
+
+### Zero Values
+
+Most of series data have zero values
+
+```{r}
+df_summary %>% 
+  mutate(is_zero = ifelse(zero_na_cnt == 0, FALSE, TRUE)) %>% 
+  count(is_zero) %>% 
+  mutate(p = n / sum(n))
+```
+
+How is the distribution of zero values or NA data?
 
 ```{r}
 
 ```
 
+### Data Summary
+
+```{r describe}
+df_summary %>% 
+  summary()
+```
+
+```{r dist}
+df_summary %>%
+  mutate(id = paste0(site_code, product_code)) %>% 
+  select(id, na_cnt, zero_cnt, zero_na_cnt, val_mean, val_sd, 
+         upper_outlier_cnt, lower_outlier_cnt) %>%
+  gather(key, val, -id) %>%
+  ggplot(aes(val)) +
+  geom_histogram() +
+  facet_wrap(~key, nrow = 3, scales = "free")
+```
 
 ## External Data
 

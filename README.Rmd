@@ -56,7 +56,7 @@ Additional information:
 - [X] Modeling: single model (tree models, [LightGBM baseline](https://www.kaggle.com/rasyidstat/ifc-lightgbm-baseline)) 
 - [ ] Modeling: separate model for each lag
 - [ ] Features engineering: neighborhood features
-- [ ] Postprocessing: factor multiplication
+- [X] Postprocessing: factor multiplication (between 1.05-1.20, tree models cannot get the trend)
 - [ ] Clustering + re-EDA
 - [ ] External Data
 
