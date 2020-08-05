@@ -356,7 +356,6 @@ write_rds(res, "data/temp/regression_log.rds")
 
 
 # XGBoost -----------------------------------------------------------------
-# Linear Regression -------------------------------------------------------
 get_result_xgb <- function(df, i) {
   # Predict
   df <- df %>%

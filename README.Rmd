@@ -1,0 +1,131 @@
+---
+title: "ifc"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+USAID's Intelligent Forecasting: Model Future Contraceptive Use
+
+## Data
+
+Source: [Kaggle](https://www.kaggle.com/darisdzakwanhoesien2/usaids-model-future-contraceptive-use)
+
+* 156 sites
+* 11 products
+* 1716 sites x products (train: 1357, test: 1052)
+* 45 observations from Jan 2016 to Sep 2019
+* Predict 3 observations from Oct 2019 to Dec 2019
+* 38,842 train data
+* 3,115 test data
+
+Additional information:
+
+* Deadline: 8 Sept 2020
+* Metrics: MASE
+* 2 winners only (it will be very hard!)
+
+## CV Strategy
+
+4 times CV (quarterly basis)
+
+* Jan - Mar 2019 (36 data)
+* April - Jun 2019 (39 data)
+* Jul - Sep 2019 (42 data)
+* Oct - Dec 2018 (33 data)
+
+8 times CV (moving monthly)
+
+* Jan - Mar 2019 (CV 4) OK
+* Feb - Apr 2019 (CV 3.1)
+* March - May 2019 (CV 3)
+* April - Jun 2019 (CV 2.1) OK
+* May - Jul 2019 (CV 2)
+* Jun - Aug 2019 (CV 1.1)
+* Jul - Sep 2019 (CV 1)  OK
+* Oct - Dec 2018 (CV 5) OK
+
+## Tasks
+
+- [x] EDA: MVP
+- [ ] EDA: Check data completeness
+- [ ] EDA: Deep EDA
+- [X] Modeling: MVP (baseline)
+- [X] Modeling: single model (tree models, [LightGBM baseline](https://www.kaggle.com/rasyidstat/ifc-lightgbm-baseline)) 
+- [ ] Modeling: separate model for each lag
+- [ ] Features engineering: neighborhood features
+- [ ] Postprocessing: factor multiplication
+- [ ] Clustering + re-EDA
+- [ ] External Data
+
+## Baseline Result
+
+So far, the best baseline model is single LightGBM with lag 3, 4 months. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(furrr)
+source("script/util.R")
+
+res <- read_rds("data/temp/naive.rds") %>%
+  mutate(method = "Naive") %>%
+  bind_rows(
+    read_rds("data/temp/snaive.rds") %>%
+      mutate(method = "SNaive"),
+    read_rds("data/temp/regression.rds") %>%
+      mutate(method = "Regression"),
+    read_rds("data/temp/xgb.rds") %>%
+      mutate(method = "XGBoost")
+  ) %>%
+  filter(!is.na(res))
+safe_pluck <- possibly(pluck, NA)
+res <- res %>%
+  mutate(rmse_train = map_dbl(res, safe_pluck, "rmse_train"),
+         rmse_test = map_dbl(res, safe_pluck, "rmse_test"),
+         mae_train = map_dbl(res, safe_pluck, "mae_train"),
+         mae_test = map_dbl(res, safe_pluck, "mae_test"))
+res_summary <- res %>%
+  group_by(method, cv) %>%
+  summarise(cnt = sum(ifelse(is.na(mae_test), 0, 1)),
+            mae_test = mean(mae_test, na.rm = TRUE)) %>%
+  ungroup() %>% 
+  group_by(Method = method) %>%
+  summarise(`MAE CV-1` = mean(ifelse(cv == "res_cv1", mae_test, NA_real_), na.rm = TRUE),
+            `MAE (4-CV)` = mean(ifelse(cv %in% c("res_cv1",
+                                                 "res_cv21",
+                                                 "res_cv4",
+                                                 "res_cv5"), mae_test, NA_real_), na.rm = TRUE),
+            `MAE Std (4-CV)` = sd(ifelse(cv %in% c("res_cv1",
+                                                   "res_cv21",
+                                                   "res_cv4",
+                                                   "res_cv5"), mae_test, NA_real_), na.rm = TRUE),
+            `MAE (8-CV)` = mean(mae_test),
+            `MAE Std (8-CV)` = sd(mae_test)) %>% 
+  transmute(Method, 
+            `MAE CV-1` = scales::comma(`MAE CV-1`, 0.01),
+            `MAE (4-CV)` = paste0(scales::comma(`MAE (4-CV)`, 0.01), " (±", 
+                                  scales::comma(`MAE Std (4-CV)`, 0.01), ")"),
+            `MAE (8-CV)` = paste0(scales::comma(`MAE (8-CV)`, 0.01), " (±", 
+                                  scales::comma(`MAE Std (8-CV)`, 0.01), ")")) %>% 
+  ungroup() %>% 
+  # Add LightGBM result
+  bind_rows(tibble(Method = "LightGBM",
+                   `MAE CV-1` = scales::comma(11.229310943264329, 0.01) )) %>% 
+  arrange(`MAE CV-1`) %>% 
+  mutate_all(~replace_na(., "-"))
+knitr::kable(res_summary, digits = 2)
+```
+
+Also, we calculate RMSE to compare result with [Zindi leaderboard](https://zindi.africa/competitions/usaids-intelligent-forecasting-challenge-model-future-contraceptive-use/leaderboard)
+
+- LGB Single + Lag 3,4 + Categorical + 1.2 factor --> **RMSE: 38.33**
+- LGB Single + Lag 3,4 + Categorical --> **RMSE: 38.72**
+- XGB Multiple + Lag 3 --> **RMSE: 40.52**
+
+
+
+
+
+

@@ -55,20 +55,26 @@ res %>%
   group_by(method) %>%
   summarise(mae_test_avg = mean(mae_test),
             mae_test_sd = sd(mae_test)) %>%
-  View()
+  View("res_1")
 
+res_summary %>%
+  ungroup() %>%
+  group_by(method) %>%
+  summarise(mae_test = mean(mae_test)) %>%
+  View("res_2")
 
 
 
 # All Observation ---------------------------------------------------------
-res_summary_all <- res %>%
+res_unnest <- res %>%
   transmute(site_code,
             product_code,
             cv,
             method,
             y_test = map(res, pluck, "y_test"),
             y_test_pred = map(res, pluck, "y_test_pred")) %>%
-  unnest() %>%
+  unnest()
+res_summary <- res_unnest%>%
   mutate(se = (y_test - y_test_pred)^2,
          ae = abs(y_test - y_test_pred)) %>%
   group_by(method, cv) %>%

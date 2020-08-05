@@ -27,14 +27,68 @@ library(plotly)
 theme_set(theme_minimal())
 ```
 
-```{r data}
+```{r data-prep}
 annual <- read_csv("data/raw/contraceptive_case_data_annual.csv")
 monthly <- read_csv("data/raw/contraceptive_case_data_monthly.csv")
 logistic <- read_csv("data/raw/contraceptive_logistics_data.csv")
 location <- read_csv("data/raw/service_delivery_site_data.csv")
 product <- read_csv("data/raw/product.csv")
 subm <- read_csv("data/raw/submission_format.csv")
+
+# Join logistic and location
+logistic <- logistic %>% 
+  left_join(
+    location %>% 
+      select(-site_region, -site_district)
+  )
+
+# Join logistic and product
+logistic <- logistic %>% 
+  left_join(product)
 ```
+
+```{r data-checking, eval=FALSE, include=FALSE}
+annual$district %>% n_distinct() # 113 districts
+monthly$district %>% n_distinct() # 113 districts
+
+# Different district name
+# COCODY - BINGERVILLE	
+annual %>% 
+  count(district) %>% 
+  anti_join(monthly %>% 
+              count(district) %>% 
+              select(-n))
+# COCODY BINGERVILLE
+monthly %>% 
+  count(district) %>% 
+  anti_join(annual %>% 
+              count(district) %>% 
+              select(-n))
+
+# Location data join
+location %>% 
+  count(district = site_district) %>% 
+  anti_join(annual %>% 
+              mutate(district = case_when(district == "ABOBO EST" ~ "ABOBO-EST",
+                                          district == "COCODY - BINGERVILLE" ~ "COCODY-BINGERVILLE",
+                                          district %in% c("GAGNOA 1", "GAGNOA 2") ~ "GAGNOA",
+                                          district %in% c("KORHOGO 1", "KORHOGO 2") ~ "KORHOGO",
+                                          district == "KOUMASSI" ~ "KOUMASSI-PORT BOUET-VRIDI",
+                                          district == "MBAHIAKRO" ~ "M'BAHIAKRO",
+                                          district == "OUANGOLODOUGOU" ~ "OUANGOLO",
+                                          district == "SAN-PEDRO" ~ "SAN PEDRO",
+                                          district == "TOULEUPLEU" ~ "TOULEPLEU",
+                                          district == "YOPOUGON-OUEST SONGON" ~ "YOPOUGON-OUEST-SONGON",
+                                          TRUE ~ district)) %>% 
+              count(district) %>% 
+              select(-n))
+annual %>% 
+  count(district) %>% 
+  anti_join(location %>% 
+              count(district = site_district) %>% 
+              select(-n))
+```
+
 
 ## EDA
 
@@ -226,10 +280,6 @@ ggplotly(p)
 
 ```{r}
 logistic %>% 
-  left_join(
-    location %>% 
-      select(-site_region, -site_district)
-  ) %>% 
   group_by(site_code, site_longitude, site_latitude) %>% 
   summarise(stock_distributed = sum(stock_distributed)) %>% 
   ungroup() %>% 
@@ -241,6 +291,15 @@ logistic %>%
         axis.title = element_blank()) +
   coord_cartesian()
 ```
+
+## Deeper EDA
+
+### How 
+
+```{r}
+
+```
+
 
 ## External Data
 
