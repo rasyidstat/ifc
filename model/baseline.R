@@ -430,3 +430,64 @@ res <- df %>%
   gather(cv, res, -site_code, -product_code)
 write_rds(res, "data/temp/xgb.rds")
 
+
+
+# ARIMA -------------------------------------------------------------------
+get_result_arima <- function(df, i) {
+  # Split train and test
+  df_train <- df %>%
+    filter(idx < cv_list$start[i])
+  df_test <- df %>%
+    filter(idx >= cv_list$start[i],
+           idx <= cv_list$end[i])
+
+  # Model
+  df_train_ts <- ts(replace_na(df$y, 0))
+
+  # Model
+  if (nrow(df_train) > 0) {
+    m <- auto.arima(df_train_ts)
+    y_train <- df_train$y
+    y_train_pred <- ifelse(m$fitted < 0, 0, m$fitted)
+    y_test <- df_test$y
+    y_test_pred <- forecast(m, 3)$mean
+    y_test_pred <- ifelse(y_test_pred < 0, 0, y_test_pred)
+  } else {
+    y_train <- NA_real_
+    y_train_pred <- NA_real_
+    y_test_pred <- rep(0, nrow(df_test))
+  }
+
+  # Output
+  output <- list(
+    start_date = cv_list$start[i],
+    end_date = cv_list$end[i],
+    y_train = y_train,
+    y_train_pred = y_train_pred,
+    y_test = y_test,
+    y_test_pred = y_test_pred,
+    mae_train = mae(y_train, y_train_pred),
+    mae_test = mae(y_test, y_test_pred),
+    rmse_train = rmse(y_train, y_train_pred),
+    rmse_test = rmse(y_test, y_test_pred),
+    smape_train = smape(y_train, y_train_pred),
+    smape_test = smape(y_test, y_test_pred)
+  )
+}
+
+df <- logistic %>%
+  nest()
+df <- df %>%
+  ungroup() %>%
+  mutate(res_cv1 = future_map(data, get_result_arima, 1),
+         res_cv11 = future_map(data, get_result_arima, 2),
+         res_cv2 = future_map(data, get_result_arima, 3),
+         res_cv21 = future_map(data, get_result_arima, 4),
+         res_cv3 = future_map(data, get_result_arima, 5),
+         res_cv31 = future_map(data, get_result_arima, 6),
+         res_cv4 = future_map(data, get_result_arima, 7),
+         res_cv5 = future_map(data, get_result_arima, 8))
+res <- df %>%
+  select(-data) %>%
+  gather(cv, res, -site_code, -product_code)
+write_rds(res, "data/temp/arima.rds")

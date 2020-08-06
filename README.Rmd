@@ -77,7 +77,9 @@ res <- read_rds("data/temp/naive.rds") %>%
     read_rds("data/temp/regression.rds") %>%
       mutate(method = "Regression"),
     read_rds("data/temp/xgb.rds") %>%
-      mutate(method = "XGBoost")
+      mutate(method = "XGBoost"),
+    read_rds("data/temp/arima.rds") %>%
+      mutate(method = "ARIMA")
   ) %>%
   filter(!is.na(res))
 safe_pluck <- possibly(pluck, NA)
@@ -103,7 +105,7 @@ res_summary <- res %>%
                                                    "res_cv5"), mae_test, NA_real_), na.rm = TRUE),
             `MAE (8-CV)` = mean(mae_test),
             `MAE Std (8-CV)` = sd(mae_test)) %>% 
-  transmute(Method, 
+  transmute(Method, mae = `MAE CV-1`,
             `MAE CV-1` = scales::comma(`MAE CV-1`, 0.01),
             `MAE (4-CV)` = paste0(scales::comma(`MAE (4-CV)`, 0.01), " (±", 
                                   scales::comma(`MAE Std (4-CV)`, 0.01), ")"),
@@ -111,15 +113,18 @@ res_summary <- res %>%
                                   scales::comma(`MAE Std (8-CV)`, 0.01), ")")) %>% 
   ungroup() %>% 
   # Add LightGBM result
-  bind_rows(tibble(Method = "LightGBM",
-                   `MAE CV-1` = scales::comma(11.229310943264329, 0.01) )) %>% 
-  arrange(`MAE CV-1`) %>% 
+  bind_rows(tibble(Method = "LightGBM (MAE)",
+                   mae = 9.99851) %>% 
+              mutate(`MAE CV-1` = scales::comma(9.99851, 0.01) )) %>% 
+  arrange(mae) %>%
+  select(-mae) %>% 
   mutate_all(~replace_na(., "-"))
 knitr::kable(res_summary, digits = 2)
 ```
 
 Also, we calculate RMSE to compare result with [Zindi leaderboard](https://zindi.africa/competitions/usaids-intelligent-forecasting-challenge-model-future-contraceptive-use/leaderboard)
 
+- Auto ARIMA --> **RMSE: 34.88**
 - LGB Single + Lag 3,4 + Categorical + 1.2 factor --> **RMSE: 38.33**
 - LGB Single + Lag 3,4 + Categorical --> **RMSE: 38.72**
 - XGB Multiple + Lag 3 --> **RMSE: 40.52**

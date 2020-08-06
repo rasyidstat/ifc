@@ -52,7 +52,8 @@ Additional information:
     baseline](https://www.kaggle.com/rasyidstat/ifc-lightgbm-baseline))
   - \[ \] Modeling: separate model for each lag
   - \[ \] Features engineering: neighborhood features
-  - \[ \] Postprocessing: factor multiplication
+  - \[X\] Postprocessing: factor multiplication (between 1.05-1.20, tree
+    models cannot get the trend)
   - \[ \] Clustering + re-EDA
   - \[ \] External Data
 
@@ -60,17 +61,19 @@ Additional information:
 
 So far, the best baseline model is single LightGBM with lag 3, 4 months.
 
-| Method     | MAE CV-1 | MAE (4-CV)    | MAE (8-CV)    |
-| :--------- | :------- | :------------ | :------------ |
-| LightGBM   | 11.23    | \-            | \-            |
-| XGBoost    | 11.51    | 11.46 (±0.70) | 11.41 (±0.54) |
-| Regression | 11.71    | 11.78 (±0.64) | 11.67 (±0.51) |
-| Naive      | 11.88    | 12.30 (±0.96) | 12.07 (±0.73) |
-| SNaive     | 12.00    | 12.36 (±0.61) | 12.27 (±0.44) |
+| Method         | MAE CV-1 | MAE (4-CV)    | MAE (8-CV)    |
+| :------------- | :------- | :------------ | :------------ |
+| ARIMA          | 8.95     | 10.28 (±1.36) | 10.12 (±0.92) |
+| LightGBM (MAE) | 10.00    | \-            | \-            |
+| XGBoost        | 11.51    | 11.46 (±0.70) | 11.41 (±0.54) |
+| Regression     | 11.71    | 11.78 (±0.64) | 11.67 (±0.51) |
+| Naive          | 11.88    | 12.30 (±0.96) | 12.07 (±0.73) |
+| SNaive         | 12.00    | 12.36 (±0.61) | 12.27 (±0.44) |
 
 Also, we calculate RMSE to compare result with [Zindi
 leaderboard](https://zindi.africa/competitions/usaids-intelligent-forecasting-challenge-model-future-contraceptive-use/leaderboard)
 
+  - Auto ARIMA –\> **RMSE: 34.88**
   - LGB Single + Lag 3,4 + Categorical + 1.2 factor –\> **RMSE: 38.33**
   - LGB Single + Lag 3,4 + Categorical –\> **RMSE: 38.72**
   - XGB Multiple + Lag 3 –\> **RMSE: 40.52**

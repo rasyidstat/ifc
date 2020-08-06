@@ -24,7 +24,9 @@ res <- read_rds("data/temp/naive.rds") %>%
     # read_rds("data/temp/regression_log.rds") %>%
     #   mutate(method = "Regression (Log)"),
     read_rds("data/temp/xgb.rds") %>%
-      mutate(method = "XGBoost")
+      mutate(method = "XGBoost"),
+    read_rds("data/temp/arima.rds") %>%
+      mutate(method = "ARIMA")
   ) %>%
   filter(!is.na(res))
 safe_pluck <- possibly(pluck, NA)
@@ -74,7 +76,7 @@ res_unnest <- res %>%
             y_test = map(res, pluck, "y_test"),
             y_test_pred = map(res, pluck, "y_test_pred")) %>%
   unnest()
-res_summary <- res_unnest%>%
+res_summary_all <- res_unnest %>%
   mutate(se = (y_test - y_test_pred)^2,
          ae = abs(y_test - y_test_pred)) %>%
   group_by(method, cv) %>%

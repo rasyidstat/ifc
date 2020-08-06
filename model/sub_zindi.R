@@ -2,7 +2,8 @@
 
 sub_example <- read_csv("data/sub_zindi/SampleSubmission.csv")
 
-## My submission
+
+# XGBoost -----------------------------------------------------------------
 res <- read_rds("data/temp/xgb.rds")
 res <- res %>%
   filter(cv == "res_cv1") %>%
@@ -35,3 +36,29 @@ sub_xgb %>%
 sub_xgb %>%
   mutate(prediction = ifelse(prediction < 0.5, 0, prediction)) %>%
   write.csv("data/sub_zindi/xgb_benchmark_0.5_tres.csv", row.names = FALSE)
+
+
+# ARIMA -------------------------------------------------------------------
+res <- read_rds("data/temp/arima.rds")
+res <- res %>%
+  filter(cv == "res_cv1") %>%
+  transmute(site_code,
+            product_code,
+            cv,
+            y_test = map(res, pluck, "y_test"),
+            y_test_pred = map(res, pluck, "y_test_pred")) %>%
+  unnest() %>%
+  group_by(site_code, product_code) %>%
+  mutate(r = row_number() + 6) %>%
+  ungroup() %>%
+  mutate(ID = paste(2019, r, site_code, product_code, sep = " X "))
+
+sub_arima <- sub_example %>%
+  select(-prediction) %>%
+  left_join(
+    res %>%
+      transmute(ID,
+                prediction = y_test_pred)
+  )
+
+write.csv(sub_arima, "data/sub_zindi/arima_benchmark.csv", row.names = FALSE)
