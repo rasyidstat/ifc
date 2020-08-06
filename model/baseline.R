@@ -229,7 +229,7 @@ get_result_ets <- function(df, i) {
            idx <= cv_list$end[i])
 
   # Model
-  df_train_ts <- ts(replace_na(df$y, 0))
+  df_train_ts <- ts(replace_na(df_train$y, 0))
 
   # Model
   if (nrow(df_train) > 0) {
@@ -266,14 +266,24 @@ df <- logistic %>%
   nest()
 df <- df %>%
   ungroup() %>%
-  mutate(res_cv1 = future_map(data, get_result_ets, 1),
-         res_cv11 = future_map(data, get_result_ets, 2),
+  mutate(res_cv1 = future_map(data, get_result_ets, 1))
+         # res_cv11 = future_map(data, get_result_ets, 2),
+         # res_cv2 = future_map(data, get_result_ets, 3),
+         # res_cv21 = future_map(data, get_result_ets, 4),
+         # res_cv3 = future_map(data, get_result_ets, 5),
+         # res_cv31 = future_map(data, get_result_ets, 6),
+         # res_cv4 = future_map(data, get_result_ets, 7),
+         # res_cv5 = future_map(data, get_result_ets, 8))
+df <- df %>%
+  ungroup() %>%
+  mutate(res_cv11 = future_map(data, get_result_ets, 2),
          res_cv2 = future_map(data, get_result_ets, 3),
          res_cv21 = future_map(data, get_result_ets, 4),
          res_cv3 = future_map(data, get_result_ets, 5),
          res_cv31 = future_map(data, get_result_ets, 6),
          res_cv4 = future_map(data, get_result_ets, 7),
          res_cv5 = future_map(data, get_result_ets, 8))
+
 res <- df %>%
   select(-data) %>%
   gather(cv, res, -site_code, -product_code)
@@ -442,7 +452,7 @@ get_result_arima <- function(df, i) {
            idx <= cv_list$end[i])
 
   # Model
-  df_train_ts <- ts(replace_na(df$y, 0))
+  df_train_ts <- ts(replace_na(df_train$y, 0))
 
   # Model
   if (nrow(df_train) > 0) {

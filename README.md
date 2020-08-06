@@ -63,8 +63,9 @@ So far, the best baseline model is single LightGBM with lag 3, 4 months.
 
 | Method         | MAE CV-1 | MAE (4-CV)    | MAE (8-CV)    |
 | :------------- | :------- | :------------ | :------------ |
-| ARIMA          | 8.95     | 10.28 (±1.36) | 10.12 (±0.92) |
 | LightGBM (MAE) | 10.00    | \-            | \-            |
+| ETS            | 10.88    | 11.39 (±0.98) | 11.17 (±0.72) |
+| ARIMA          | 11.00    | 11.17 (±0.67) | 11.33 (±0.54) |
 | XGBoost        | 11.51    | 11.46 (±0.70) | 11.41 (±0.54) |
 | Regression     | 11.71    | 11.78 (±0.64) | 11.67 (±0.51) |
 | Naive          | 11.88    | 12.30 (±0.96) | 12.07 (±0.73) |
@@ -73,7 +74,6 @@ So far, the best baseline model is single LightGBM with lag 3, 4 months.
 Also, we calculate RMSE to compare result with [Zindi
 leaderboard](https://zindi.africa/competitions/usaids-intelligent-forecasting-challenge-model-future-contraceptive-use/leaderboard)
 
-  - Auto ARIMA –\> **RMSE: 34.88**
   - LGB Single + Lag 3,4 + Categorical + 1.2 factor –\> **RMSE: 38.33**
   - LGB Single + Lag 3,4 + Categorical –\> **RMSE: 38.72**
   - XGB Multiple + Lag 3 –\> **RMSE: 40.52**

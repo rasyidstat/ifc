@@ -79,7 +79,9 @@ res <- read_rds("data/temp/naive.rds") %>%
     read_rds("data/temp/xgb.rds") %>%
       mutate(method = "XGBoost"),
     read_rds("data/temp/arima.rds") %>%
-      mutate(method = "ARIMA")
+      mutate(method = "ARIMA"),
+    read_rds("data/temp/ets.rds") %>%
+      mutate(method = "ETS")
   ) %>%
   filter(!is.na(res))
 safe_pluck <- possibly(pluck, NA)
@@ -124,7 +126,6 @@ knitr::kable(res_summary, digits = 2)
 
 Also, we calculate RMSE to compare result with [Zindi leaderboard](https://zindi.africa/competitions/usaids-intelligent-forecasting-challenge-model-future-contraceptive-use/leaderboard)
 
-- Auto ARIMA --> **RMSE: 34.88**
 - LGB Single + Lag 3,4 + Categorical + 1.2 factor --> **RMSE: 38.33**
 - LGB Single + Lag 3,4 + Categorical --> **RMSE: 38.72**
 - XGB Multiple + Lag 3 --> **RMSE: 40.52**

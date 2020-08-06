@@ -26,7 +26,9 @@ res <- read_rds("data/temp/naive.rds") %>%
     read_rds("data/temp/xgb.rds") %>%
       mutate(method = "XGBoost"),
     read_rds("data/temp/arima.rds") %>%
-      mutate(method = "ARIMA")
+      mutate(method = "ARIMA"),
+    read_rds("data/temp/ets.rds") %>%
+      mutate(method = "ETS")
   ) %>%
   filter(!is.na(res))
 safe_pluck <- possibly(pluck, NA)
