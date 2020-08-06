@@ -22,6 +22,14 @@ Additional information:
   - Metrics: MASE
   - 2 winners only (it will be very hard\!)
 
+## Insights
+
+  - Trend is going up (2015 is up, 2016 is stagnant, 2017 is up, 2018 is
+    up)
+  - There are products with trend and no trend
+  - In average, there is only 25 non-zero data
+  - Distributed evenly for first non-zero date
+
 ## CV Strategy
 
 4 times CV (quarterly basis)
@@ -45,16 +53,17 @@ Additional information:
 ## Tasks
 
   - \[x\] EDA: MVP
-  - \[ \] EDA: Check data completeness
-  - \[ \] EDA: Deep EDA
-  - \[X\] Modeling: MVP (baseline)
-  - \[X\] Modeling: single model (tree models, [LightGBM
+  - \[x\] EDA: Check data completeness
+  - \[x\] EDA: Deep EDA
+  - \[x\] EDA: Post EDA prediction result and evaluationn
+  - \[x\] Modeling: MVP (baseline)
+  - \[x\] Modeling: single model (tree models, [LightGBM
     baseline](https://www.kaggle.com/rasyidstat/ifc-lightgbm-baseline))
+  - \[ \] Clustering + re-EDA
   - \[ \] Modeling: separate model for each lag
   - \[ \] Features engineering: neighborhood features
-  - \[X\] Postprocessing: factor multiplication (between 1.05-1.20, tree
+  - \[x\] Postprocessing: factor multiplication (between 1.05-1.20, tree
     models cannot get the trend)
-  - \[ \] Clustering + re-EDA
   - \[ \] External Data
 
 ## Baseline Result
@@ -63,7 +72,7 @@ So far, the best baseline model is single LightGBM with lag 3, 4 months.
 
 | Method         | MAE CV-1 | MAE (4-CV)    | MAE (8-CV)    |
 | :------------- | :------- | :------------ | :------------ |
-| LightGBM (MAE) | 10.00    | \-            | \-            |
+| LightGBM (MAE) | 9.90     | \-            | \-            |
 | ETS            | 10.88    | 11.39 (±0.98) | 11.17 (±0.72) |
 | ARIMA          | 11.00    | 11.17 (±0.67) | 11.33 (±0.54) |
 | XGBoost        | 11.51    | 11.46 (±0.70) | 11.41 (±0.54) |
