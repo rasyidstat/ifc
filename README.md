@@ -70,15 +70,15 @@ Additional information:
 
 So far, the best baseline model is single LightGBM with lag 3, 4 months.
 
-| Method         | MAE CV-1 | MAE (4-CV)    | MAE (8-CV)    |
-| :------------- | :------- | :------------ | :------------ |
-| LightGBM (MAE) | 9.90     | \-            | \-            |
-| ETS            | 10.88    | 11.39 (±0.98) | 11.17 (±0.72) |
-| ARIMA          | 11.00    | 11.17 (±0.67) | 11.33 (±0.54) |
-| XGBoost        | 11.51    | 11.46 (±0.70) | 11.41 (±0.54) |
-| Regression     | 11.71    | 11.78 (±0.64) | 11.67 (±0.51) |
-| Naive          | 11.88    | 12.30 (±0.96) | 12.07 (±0.73) |
-| SNaive         | 12.00    | 12.36 (±0.61) | 12.27 (±0.44) |
+| Method     | MAE CV-1 | MAE (4-CV)    | MAE (8-CV)    |
+| :--------- | :------- | :------------ | :------------ |
+| LightGBM   | 10.14    | 10.59 (±0.38) | 10.62 (±0.40) |
+| ETS        | 10.88    | 11.39 (±0.98) | 11.17 (±0.72) |
+| ARIMA      | 11.00    | 11.17 (±0.67) | 11.33 (±0.54) |
+| XGBoost    | 11.51    | 11.46 (±0.70) | 11.41 (±0.54) |
+| Regression | 11.71    | 11.78 (±0.64) | 11.67 (±0.51) |
+| Naive      | 11.88    | 12.30 (±0.96) | 12.07 (±0.73) |
+| SNaive     | 12.00    | 12.36 (±0.61) | 12.27 (±0.44) |
 
 Also, we calculate RMSE to compare result with [Zindi
 leaderboard](https://zindi.africa/competitions/usaids-intelligent-forecasting-challenge-model-future-contraceptive-use/leaderboard)

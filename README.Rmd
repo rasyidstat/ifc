@@ -98,6 +98,23 @@ res <- res %>%
          rmse_test = map_dbl(res, safe_pluck, "rmse_test"),
          mae_train = map_dbl(res, safe_pluck, "mae_train"),
          mae_test = map_dbl(res, safe_pluck, "mae_test"))
+res_lgb <- read.csv("data/temp/lgb_baseline_pred.csv") %>% 
+  mutate(preds = ifelse(preds < 0, 0, preds),
+         # preds = 1.05 * preds,
+         ae = abs(stock_distributed - preds)) %>% 
+  group_by(site_code, product_code, block) %>% 
+  summarise(mae = mean(ae, na.rm = TRUE)) %>% 
+  ungroup() 
+res_lgb <- res_lgb %>% 
+  group_by(Method = "LightGBM", block) %>% 
+  summarise(mae = mean(mae, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  group_by(Method) %>% 
+  summarise(`MAE CV-1` = mean(ifelse(block == 43, mae, NA_real_), na.rm = TRUE),
+            `MAE (4-CV)` = mean(ifelse(block %in% c(43,42,41,40), mae, NA_real_), na.rm = TRUE),
+            `MAE Std (4-CV)` = sd(ifelse(block %in% c(43,42,41,40), mae, NA_real_), na.rm = TRUE),
+            `MAE (8-CV)` = mean(mae),
+            `MAE Std (8-CV)` = sd(mae))
 res_summary <- res %>%
   group_by(method, cv) %>%
   summarise(cnt = sum(ifelse(is.na(mae_test), 0, 1)),
@@ -115,6 +132,7 @@ res_summary <- res %>%
                                                    "res_cv5"), mae_test, NA_real_), na.rm = TRUE),
             `MAE (8-CV)` = mean(mae_test),
             `MAE Std (8-CV)` = sd(mae_test)) %>% 
+  bind_rows(res_lgb) %>% 
   transmute(Method, mae = `MAE CV-1`,
             `MAE CV-1` = scales::comma(`MAE CV-1`, 0.01),
             `MAE (4-CV)` = paste0(scales::comma(`MAE (4-CV)`, 0.01), " (±", 
@@ -122,10 +140,6 @@ res_summary <- res %>%
             `MAE (8-CV)` = paste0(scales::comma(`MAE (8-CV)`, 0.01), " (±", 
                                   scales::comma(`MAE Std (8-CV)`, 0.01), ")")) %>% 
   ungroup() %>% 
-  # Add LightGBM result
-  bind_rows(tibble(Method = "LightGBM (MAE)",
-                   mae = 9.901819672750564) %>% 
-              mutate(`MAE CV-1` = scales::comma(mae, 0.01) )) %>% 
   arrange(mae) %>%
   select(-mae) %>% 
   mutate_all(~replace_na(., "-"))
