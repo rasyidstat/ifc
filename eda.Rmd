@@ -26,6 +26,7 @@ library(forcats)
 library(plotly)
 library(feather)
 library(skimr)
+library(GGally)
 library(mrsq)
 theme_set(theme_nunito())
 ```
@@ -158,10 +159,16 @@ It always increases :)
 ```{r}
 p <- logistic %>% 
   group_by(year, month) %>% 
-  summarise(stock_distributed = sum(stock_distributed)) %>% 
+  summarise(stock_initial = sum(stock_initial),
+            stock_received = sum(stock_received),
+            stock_ordered = sum(stock_ordered),
+            stock_end = sum(stock_end),
+            stock_distributed = sum(stock_distributed)) %>% 
   ungroup() %>% 
   mutate(dt = dmy(paste("1", month, year, sep = "-"))) %>% 
-  ggplot(aes(dt, stock_distributed)) +
+  select(-year, -month) %>% 
+  gather(key, val, -dt) %>% 
+  ggplot(aes(dt, val, color = key)) +
   geom_line()
 ggplotly(p)
 ```
@@ -344,6 +351,60 @@ df_clean %>%
   filter(site_code == "C4022",
          product_code == "AS21126") %>% 
   View()
+```
+
+### Correlation {.tabset}
+
+#### All
+
+```{r}
+df_clean %>% 
+  select(contains("stock")) %>% 
+  ggcorr(label = TRUE, label_round = 2)
+```
+
+#### t-1
+
+```{r}
+df_clean %>% 
+  group_by(site_code, product_code) %>% 
+  mutate_at(vars(contains("stock")), funs(l1 = lag(., 1))) %>% 
+  ungroup() %>% 
+  select(contains("l1"), stock_distributed) %>% 
+  ggcorr(label = TRUE, label_round = 2)
+```
+
+#### t-2
+
+```{r}
+df_clean %>% 
+  group_by(site_code, product_code) %>% 
+  mutate_at(vars(contains("stock")), funs(l2 = lag(., 1))) %>% 
+  ungroup() %>% 
+  select(contains("l2"), stock_distributed) %>% 
+  ggcorr(label = TRUE, label_round = 2)
+```
+
+#### t-3
+
+```{r}
+df_clean %>% 
+  group_by(site_code, product_code) %>% 
+  mutate_at(vars(contains("stock")), funs(l3 = lag(., 1))) %>% 
+  ungroup() %>% 
+  select(contains("l3"), stock_distributed) %>% 
+  ggcorr(label = TRUE, label_round = 2)
+```
+
+#### t-4
+
+```{r}
+df_clean %>% 
+  group_by(site_code, product_code) %>% 
+  mutate_at(vars(contains("stock")), funs(l4 = lag(., 1))) %>% 
+  ungroup() %>% 
+  select(contains("l4"), stock_distributed) %>% 
+  ggcorr(label = TRUE, label_round = 2)
 ```
 
 ### Zero Values

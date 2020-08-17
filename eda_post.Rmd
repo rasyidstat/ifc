@@ -1,0 +1,259 @@
+---
+title: "Post EDA"
+author: "Rasyid Ridha"
+output: 
+  html_document:
+    toc: true
+    theme: simplex
+    code_folding: hide
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, 
+  warning = FALSE, 
+  message = FALSE,
+  fig.path = "figs/"
+)
+```
+
+```{r library}
+library(lubridate)
+library(tidyverse)
+library(hrbrthemes)
+library(forcats)
+library(plotly)
+library(feather)
+library(skimr)
+library(mrsq)
+library(GGally)
+theme_set(theme_nunito())
+```
+
+```{r}
+train <- read_feather("data/clean/ifc_clean.feather")
+train <- train %>%
+  mutate(stock_distributed = replace_na(stock_distributed, 0))
+summary_train <- train %>% 
+  group_by(site_code, product_code) %>% 
+  summarise(stock_distributed_sum = sum(stock_distributed))
+```
+
+## LGB Evaluation
+
+Most of zero time series predict no zero value, how can?
+
+```{r}
+res_lgb <- read.csv("data/temp/lgb_baseline_pred.csv") %>% 
+  mutate(preds = ifelse(preds < 0, 0, preds),
+         ae = abs(stock_distributed - preds))
+res_lgb %>% 
+  inner_join(summary_train %>% 
+               filter(stock_distributed_sum == 0)) %>% 
+  mutate(is_zero = ae == 0) %>% 
+  count(is_zero)
+```
+
+### Overall prediction
+
+```{r}
+p <- train %>% 
+  group_by(ds) %>% 
+  summarise(stock_distributed = sum(stock_distributed)) %>% 
+  ungroup() %>% 
+  mutate(cat = "Actual") %>% 
+  bind_rows(res_lgb %>% 
+              group_by(block, idx) %>% 
+              summarise(preds = sum(preds)) %>% 
+              ungroup() %>% 
+              transmute(ds = as.Date("2018-10-01") + months(idx - 34),
+                        stock_distributed = preds,
+                        cat = paste0("CV-", block))) %>% 
+  ggplot(aes(ds, stock_distributed, color = cat)) +
+  geom_line()
+ggplotly(p)
+```
+
+### Individual prediction
+
+```{r}
+train_and_pred <- train %>% 
+  select(ds, site_code, product_code, stock_distributed) %>% 
+  mutate(cat = "Actual") %>% 
+  bind_rows(res_lgb %>% 
+              transmute(ds = as.Date("2018-10-01") + months(idx - 34),
+                        site_code, product_code,
+                        stock_distributed = preds,
+                        error = ae,
+                        cat = paste0("CV-", block)))
+plot_eval <- function(site = "C1024", product = "AS27000") {
+  p <- train_and_pred %>% 
+    filter(product_code == product,
+           site_code == site) %>% 
+    ggplot(aes(ds, stock_distributed, color = cat)) +
+    geom_line() 
+  ggplotly(p)
+  }
+```
+
+#### Highest Error {.tabset}
+
+##### 1
+
+```{r}
+plot_eval()
+```
+
+##### 2
+
+```{r}
+plot_eval("C1056", "AS27133")
+```
+
+##### 3
+
+```{r}
+plot_eval("C5015", "AS46000")
+```
+
+#### Lowest Error {.tabset}
+
+```{r eval=FALSE, include=FALSE}
+train_and_pred %>% 
+  filter(!is.na(error)) %>% 
+  arrange(desc(stock_distributed), error)
+```
+
+##### 1
+
+```{r}
+plot_eval("C1077", "AS27133")
+```
+
+##### 2
+
+```{r}
+plot_eval("C1078", "AS27133")
+```
+
+##### 3
+
+```{r}
+plot_eval("C1086", "AS27133")
+```
+
+## Ensemble
+
+### CV Correlation
+
+```{r}
+res <- read_rds("data/temp/naive.rds") %>%
+  mutate(method = "Naive") %>%
+  bind_rows(
+    read_rds("data/temp/snaive.rds") %>%
+      mutate(method = "SNaive"),
+    read_rds("data/temp/regression.rds") %>%
+      mutate(method = "Regression"),
+    read_rds("data/temp/xgb.rds") %>%
+      mutate(method = "XGBoost"),
+    read_rds("data/temp/arima.rds") %>%
+      mutate(method = "ARIMA"),
+    read_rds("data/temp/ets.rds") %>%
+      mutate(method = "ETS")
+  ) %>%
+  filter(!is.na(res)) %>% 
+  mutate(block = case_when(cv == "res_cv1" ~ 43,
+                           cv == "res_cv11" ~ 42,
+                           cv == "res_cv2" ~ 41,
+                           cv == "res_cv21" ~ 40,
+                           cv == "res_cv3" ~ 39,
+                           cv == "res_cv31" ~ 38,
+                           cv == "res_cv4" ~ 37,
+                           cv == "res_cv5" ~ 34))
+safe_pluck <- possibly(pluck, NA)
+summary_res <- res %>%
+  mutate(rmse_train = map_dbl(res, safe_pluck, "rmse_train"),
+         rmse_test = map_dbl(res, safe_pluck, "rmse_test"),
+         mae_train = map_dbl(res, safe_pluck, "mae_train"),
+         mae_test = map_dbl(res, safe_pluck, "mae_test")) %>% 
+  select(method, site_code, product_code, block, mae = mae_test) %>% 
+  filter(!is.na(mae)) %>% 
+  bind_rows(
+    res_lgb %>% 
+      group_by(method = "LGB", site_code, product_code, block) %>% 
+      summarise(mae = mean(ae))
+  )
+summary_res_spread <- summary_res %>% 
+  spread(method, mae)
+summary_res_spread %>% 
+  select(-block) %>% 
+  ggcorr(label = TRUE, label_round = 2)
+```
+
+```{r}
+summary_res_spread %>% 
+  group_by(block) %>% 
+  summarise_if(is.numeric, mean)
+```
+
+### Best Model Selection
+
+Let's combine the model! Using best model selection first!
+
+```{r}
+best_selection <- summary_res %>% 
+  arrange(site_code, product_code, mae) %>% 
+  group_by(site_code, product_code, block) %>% 
+  mutate(r = row_number()) %>% 
+  filter(r == 1) %>% 
+  select(-r) %>% 
+  ungroup()
+best_selection %>% 
+  group_by(block) %>% 
+  summarise(mae_mean = mean(mae)) %>% 
+  ungroup()
+```
+
+It's superb! We can get MAE 7.xx using best selection method. Dramatic! Let's see which model are the best?
+
+```{r}
+best_selection %>% 
+  count(block, method) %>% 
+  group_by(block) %>% 
+  mutate(n_all = sum(n),
+         p = n / sum(n)) %>% 
+  select(-n) %>% 
+  spread(method, p)
+```
+
+My mind blowns when 50% of the data use Naive! Super crazy! Let's do best model selection between LGB + Naive only
+
+```{r}
+best_selection <- summary_res %>% 
+  filter(method %in% c("LGB", "Naive")) %>% 
+  arrange(site_code, product_code, mae) %>% 
+  group_by(site_code, product_code, block) %>% 
+  mutate(r = row_number()) %>% 
+  filter(r == 1) %>% 
+  select(-r) %>% 
+  ungroup()
+best_selection %>% 
+  group_by(block) %>% 
+  summarise(mae_mean = mean(mae)) %>% 
+  ungroup()
+```
+ 
+Quite good, we can reach 8.xx with help from Naive!
+ 
+```{r}
+best_selection %>% 
+  count(block, method) %>% 
+  group_by(block) %>% 
+  mutate(n_all = sum(n),
+         p = n / sum(n)) %>% 
+  select(-n) %>% 
+  spread(method, p)
+```
+ 
+Kaboom! 60% are using Naive :))

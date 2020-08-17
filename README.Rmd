@@ -56,17 +56,26 @@ Additional information:
 
 ## Tasks
 
+Notion: [link](https://www.notion.so/rasyidridha/Tasks-e9c9299a80bf46e9aa6f448998ff40fc?p=86a7c89a14bb48708f968a1c8f854b2b)
+
 - [x] EDA: MVP
 - [x] EDA: Check data completeness
 - [x] EDA: Deep EDA
 - [x] EDA: Post EDA prediction result and evaluationn
 - [x] Modeling: MVP (baseline)
-- [x] Modeling: single model (tree models, [LightGBM baseline](https://www.kaggle.com/rasyidstat/ifc-lightgbm-baseline)) 
+- [x] Modeling: single model (10.39, tree models, [LightGBM baseline](https://www.kaggle.com/rasyidstat/ifc-lightgbm-baseline)) 
+- [x] Modeling: separate model for each lag (10.18, better so far)
+- [x] Modeling: recursive model (10.77)
+- [ ] Modeling: all variables included
 - [ ] Clustering + re-EDA
-- [ ] Modeling: separate model for each lag
+- [ ] Features engineering: scale to 0 to 1 for each series
 - [ ] Features engineering: neighborhood features
 - [x] Postprocessing: factor multiplication (between 1.05-1.20, tree models cannot get the trend)
+- [x] Post-EDA: MVP (explore LightGBM and ensemble technique)
 - [ ] External Data
+- [ ] Function: create universal function (recursive, individual vs all)
+- [ ] Modeling: ETS + LightGBM (R for ETS, Python for LightGBM)
+- [ ] Modeling: predict zero values (classification)
 
 ## Baseline Result
 
