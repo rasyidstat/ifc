@@ -257,3 +257,26 @@ best_selection %>%
 ```
  
 Kaboom! 60% are using Naive :))
+
+## MAE (Overall)
+
+```{r}
+res_all <- res %>% 
+  filter(cv == "res_cv1") %>% 
+  transmute(site_code,
+            product_code,
+            cv,
+            method,
+            y_test = map(res, pluck, "y_test"),
+            y_test_pred = map(res, pluck, "y_test_pred")) %>%
+  unnest()
+res_all %>% 
+  filter(!is.na(y_test)) %>% 
+  mutate(ae = abs(y_test - y_test_pred)) %>% 
+  group_by(method) %>% 
+  summarise(n = n(),
+            mae = mean(ae)) %>% 
+  ungroup() %>% 
+  arrange(mae)
+```
+

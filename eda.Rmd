@@ -230,6 +230,30 @@ logistic %>%
 
 ### Quarterly Trend {.tabset}
 
+#### Real Quarter
+
+```{r}
+logistic %>% 
+  group_by(year, month) %>% 
+  summarise(stock_distributed = sum(stock_distributed)) %>% 
+  ungroup() %>% 
+  mutate(q = month %% 4) %>%
+  mutate(dt = dmy(paste("1", month, year, sep = "-")),
+         q = quarter(dt)) %>% 
+  filter(year != 2019) %>%
+  group_by(year) %>% 
+  mutate(day_in_month = days_in_month(dt),
+         stock_distributed_norm = stock_distributed / day_in_month * 30,
+         pct = stock_distributed_norm / sum(stock_distributed_norm)) %>% 
+  ungroup() %>% 
+  ggplot(aes(q, pct, group = q)) +
+  geom_boxplot() +
+  scale_x_continuous(breaks = 1:12) +
+  scale_y_continuous(labels = scales::percent)
+```
+
+#### Every Three
+
 ```{r}
 logistic %>% 
   group_by(year, month) %>% 
@@ -249,13 +273,122 @@ logistic %>%
   scale_y_continuous(labels = scales::percent)
 ```
 
+#### Every Four
+
+```{r}
+logistic %>% 
+  group_by(year, month) %>% 
+  summarise(stock_distributed = sum(stock_distributed)) %>% 
+  ungroup() %>% 
+  mutate(q = month %% 4) %>%
+  mutate(dt = dmy(paste("1", month, year, sep = "-"))) %>% 
+  filter(year != 2019) %>%
+  group_by(year) %>% 
+  mutate(day_in_month = days_in_month(dt),
+         stock_distributed_norm = stock_distributed / day_in_month * 30,
+         pct = stock_distributed_norm / sum(stock_distributed_norm)) %>% 
+  ungroup() %>% 
+  ggplot(aes(q, pct, group = q)) +
+  geom_boxplot() +
+  scale_x_continuous(breaks = 1:12) +
+  scale_y_continuous(labels = scales::percent)
+```
+
 ### Product {.tabset}
+
+46% use Injectable, wow!
+
+```{r}
+logistic %>% 
+  group_by(product_type, year, month) %>% 
+  summarise(stock_distributed = sum(stock_distributed),
+            site_cnt = n_distinct(site_code)) %>% 
+  ungroup() %>% 
+  group_by(product_type) %>% 
+  summarise(month_cnt = sum(ifelse(stock_distributed > 0, 1, 0)),
+            site_cnt = max(site_cnt),
+            demand_avg = mean(stock_distributed),
+            demand_median = median(stock_distributed),
+            demand_min = min(stock_distributed),
+            demand_max = max(stock_distributed)) %>% 
+  ungroup() %>% 
+  arrange(desc(demand_avg)) %>% 
+  mutate(demand_pct = demand_avg / sum(demand_avg))
+```
 
 We have 11 products to explore!
 
-#### All-in-one
+<!-- #### All-in-one -->
 
 ```{r}
+p_list <- unique(logistic$product_type)
+plot_list <- list()
+for (i in 1:length(p_list)) {
+  p <- logistic %>% 
+    filter(product_type == p_list[i]) %>% 
+    group_by(year, month, product_code) %>% 
+    summarise(site_cnt = length(unique(site_code[stock_distributed > 0])), 
+              site_all_cnt = n_distinct(site_code),
+              site_active_pct = site_cnt / site_all_cnt,
+              stock_distributed = sum(stock_distributed)) %>% 
+    ungroup() %>% 
+    mutate(dt = dmy(paste("1", month, year, sep = "-"))) %>% 
+    left_join(product) %>% 
+    ggplot(aes(dt, stock_distributed, 
+               color = product_code)) +
+    geom_point(aes(text = paste0("product_type: ", product_type, "\n",
+                             "site_cnt: ", site_cnt, "\n",
+                             "site_all_cnt: ", site_all_cnt, "\n",
+                             "site_active_pct: ", scales::percent(site_active_pct) ))) +
+    geom_line() +
+    labs(title = p_list[i])
+  plot_list[[i]] <- p
+}
+```
+
+#### 1
+
+```{r}
+ggplotly(plot_list[[1]])
+```
+
+#### 2
+
+```{r}
+ggplotly(plot_list[[2]])
+```
+
+#### 3
+
+```{r}
+ggplotly(plot_list[[3]])
+```
+
+#### 4
+
+```{r}
+ggplotly(plot_list[[4]])
+```
+
+#### 5
+
+```{r}
+ggplotly(plot_list[[5]])
+```
+
+#### 6
+
+```{r}
+ggplotly(plot_list[[6]])
+```
+
+#### 7
+
+```{r}
+ggplotly(plot_list[[7]])
+```
+
+```{r eval=FALSE, include=FALSE}
 p <- logistic %>% 
   group_by(year, month, product_code) %>% 
   summarise(stock_distributed = sum(stock_distributed)) %>% 
@@ -269,9 +402,9 @@ p <- logistic %>%
 ggplotly(p)
 ```
 
-#### Split
+<!-- #### Split -->
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 p <- logistic %>% 
   group_by(year, month, product_code) %>% 
   summarise(stock_distributed = sum(stock_distributed)) %>% 
@@ -359,7 +492,7 @@ df_clean %>%
 
 ```{r}
 df_clean %>% 
-  select(contains("stock")) %>% 
+  select(contains("stock"), average_monthly_consumption) %>% 
   ggcorr(label = TRUE, label_round = 2)
 ```
 
@@ -368,10 +501,9 @@ df_clean %>%
 ```{r}
 df_clean %>% 
   group_by(site_code, product_code) %>% 
-  mutate_at(vars(contains("stock")), funs(l1 = lag(., 1))) %>% 
+  mutate_at(vars(contains("stock"), "average_monthly_consumption"), funs(l1 = lag(., 1))) %>% 
   ungroup() %>% 
-  select(contains("l1"), stock_distributed) %>% 
-  ggcorr(label = TRUE, label_round = 2)
+  select(contains("l1"), stock_distributed)
 ```
 
 #### t-2
@@ -379,7 +511,7 @@ df_clean %>%
 ```{r}
 df_clean %>% 
   group_by(site_code, product_code) %>% 
-  mutate_at(vars(contains("stock")), funs(l2 = lag(., 1))) %>% 
+  mutate_at(vars(contains("stock"), "average_monthly_consumption"), funs(l2 = lag(., 2))) %>% 
   ungroup() %>% 
   select(contains("l2"), stock_distributed) %>% 
   ggcorr(label = TRUE, label_round = 2)
@@ -390,7 +522,7 @@ df_clean %>%
 ```{r}
 df_clean %>% 
   group_by(site_code, product_code) %>% 
-  mutate_at(vars(contains("stock")), funs(l3 = lag(., 1))) %>% 
+  mutate_at(vars(contains("stock"), "average_monthly_consumption"), funs(l3 = lag(., 3))) %>% 
   ungroup() %>% 
   select(contains("l3"), stock_distributed) %>% 
   ggcorr(label = TRUE, label_round = 2)
@@ -401,7 +533,7 @@ df_clean %>%
 ```{r}
 df_clean %>% 
   group_by(site_code, product_code) %>% 
-  mutate_at(vars(contains("stock")), funs(l4 = lag(., 1))) %>% 
+  mutate_at(vars(contains("stock"), "average_monthly_consumption"), funs(l4 = lag(., 4))) %>% 
   ungroup() %>% 
   select(contains("l4"), stock_distributed) %>% 
   ggcorr(label = TRUE, label_round = 2)
@@ -463,7 +595,7 @@ df_summary %>%
   ggplot(aes(first_date_no_na, n)) +
   geom_text(aes(label = scales::percent(p)), 
             vjust = -0.5,
-            color = "blue",
+            color = "steelblue",
             family = "Nunito") + 
   geom_col()
 ```
