@@ -48,6 +48,15 @@ Most of zero time series predict no zero value, how can?
 res_lgb <- read.csv("data/temp/lgb_baseline_pred.csv") %>% 
   mutate(preds = ifelse(preds < 0, 0, preds),
          ae = abs(stock_distributed - preds))
+res_lgb_iv <- read.csv("data/temp/lgb_individual_pred.csv") %>% 
+  mutate(preds = ifelse(preds < 0, 0, preds),
+         ae = abs(stock_distributed - preds))
+res_lgb_all_rmse <- read.csv("data/temp/lgb_individual_allf_pred_rmse.csv") %>% 
+  mutate(preds = ifelse(preds < 0, 0, preds),
+         ae = abs(stock_distributed - preds))
+res_lgb_all <- read.csv("data/temp/lgb_individual_allf_pred.csv") %>% 
+  mutate(preds = ifelse(preds < 0, 0, preds),
+         ae = abs(stock_distributed - preds))
 res_lgb %>% 
   inner_join(summary_train %>% 
                filter(stock_distributed_sum == 0)) %>% 
@@ -278,5 +287,49 @@ res_all %>%
             mae = mean(ae)) %>% 
   ungroup() %>% 
   arrange(mae)
+```
+
+## MASE Calculation
+
+- 970 time series which are eligible, for test data
+- 969 time series which are eligible, for CV-1
+
+```{r}
+summary_diff <- read_feather("data/clean/denom_v1.feather")
+summary_res %>% 
+  filter(block == 43) %>% 
+  left_join(summary_diff) %>% 
+  mutate(mase = mae / val_diff_cv_43,
+         mase = replace_na(mase, 0),
+         mase = ifelse(is.infinite(mase), 0, mase)) %>% 
+  group_by(method) %>% 
+  summarise(mase_mean = mean(mase),
+            mase_sd = sd(mase)) %>% 
+  ungroup() %>% 
+  arrange(mase_mean)
+```
+
+```{r}
+summary_res %>% 
+  bind_rows(
+    bind_rows(
+      mutate(res_lgb_iv, method = "LGB-i"),
+      mutate(res_lgb_all, method = "LGB-ia"),
+      mutate(res_lgb_all_rmse, method = "LGB-iar")
+    ) %>% 
+      group_by(method, site_code, product_code, block) %>% 
+      summarise(mae = mean(ae))
+  ) %>% 
+  filter(block == 43) %>% 
+  left_join(summary_diff) %>% 
+  mutate(mase = mae / val_diff,
+         mase = replace_na(mase, 0),
+         mase = ifelse(is.infinite(mase), 0, mase)) %>% 
+  group_by(method) %>% 
+  summarise(mase_mean = mean(mase),
+            mase_sd = sd(mase)) %>% 
+  ungroup() %>% 
+  arrange(mase_mean) %>% 
+  mutate(improvement = -1*(mase_mean/1-1) )
 ```
 

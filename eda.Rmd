@@ -152,6 +152,38 @@ logistic %>%
 
 </details> 
 
+### Distribution {.tabset}
+
+```{r}
+df_clean <- read_feather("data/clean/ifc_clean.feather")
+df_clean <- df_clean %>%
+  mutate(idx_flag = isna == FALSE,
+         idx_flag = as.integer(idx_flag)) %>%
+  group_by(site_code, product_code) %>%
+  mutate(idx_flag_cumsum = cumsum(idx_flag)) %>%
+  filter(idx_flag_cumsum > 1) %>%
+  mutate(stock_distributed = replace_na(stock_distributed, 0),
+         val_diff = abs(stock_distributed - lag(stock_distributed)))
+```
+
+#### Real
+
+```{r}
+df_clean %>% 
+  ggplot(aes(stock_distributed)) +
+  geom_histogram()
+```
+
+#### Scaled
+
+```{r}
+df_clean %>% 
+  group_by(site_code, product_code) %>% 
+  mutate(val = stock_distributed / max(stock_distributed)) %>% 
+  ggplot(aes(val)) +
+  geom_histogram()
+```
+
 ### Overall trend
 
 It always increases :)
