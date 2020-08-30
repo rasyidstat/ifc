@@ -70,6 +70,7 @@ Notion: [link](https://www.notion.so/rasyidridha/Tasks-e9c9299a80bf46e9aa6f44899
 - [x] Modeling: all variables included (10.83)
 - [ ] Clustering + re-EDA
 - [x] Features engineering: scale to 0 to 1 for each series
+- [x] Features engineering: remove first NA value (not working)
 - [ ] Features engineering: normalize based on number of days in month
 - [ ] Features engineering: neighborhood features
 - [ ] Features engineering: time series features extraction

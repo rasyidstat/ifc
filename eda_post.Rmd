@@ -322,7 +322,7 @@ summary_res %>%
   ) %>% 
   filter(block == 43) %>% 
   left_join(summary_diff) %>% 
-  mutate(mase = mae / val_diff,
+  mutate(mase = mae / val_diff_test,
          mase = replace_na(mase, 0),
          mase = ifelse(is.infinite(mase), 0, mase)) %>% 
   group_by(method) %>% 

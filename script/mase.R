@@ -5,7 +5,7 @@ df_clean_filtered <- df_clean %>%
          idx_flag = as.integer(idx_flag)) %>%
   group_by(site_code, product_code) %>%
   mutate(idx_flag_cumsum = cumsum(idx_flag)) %>%
-  filter(idx_flag_cumsum > 1) %>%
+  filter(idx_flag_cumsum > 0) %>%
   mutate(stock_distributed = replace_na(stock_distributed, 0),
          val_diff = abs(stock_distributed - lag(stock_distributed)))
 sub_final <- read_csv("data/raw/submission_format.csv")
@@ -15,7 +15,7 @@ summary_sub <- sub_final %>%
 # Calculate MASE denominator (only take first value only)
 summary_diff <- df_clean_filtered %>%
   summarise(cnt = n(),
-            val_diff = mean(val_diff, na.rm = TRUE),
+            val_diff_test = mean(val_diff, na.rm = TRUE),
             val_diff_cv_43 = mean(ifelse(idx < 43, val_diff, NA_real_), na.rm = TRUE),
             val_diff_cv_42 = mean(ifelse(idx < 42, val_diff, NA_real_), na.rm = TRUE),
             val_diff_cv_41 = mean(ifelse(idx < 41, val_diff, NA_real_), na.rm = TRUE),
@@ -32,12 +32,13 @@ summary_diff <- df_clean_filtered %>%
 summary_diff %>%
   write_feather("data/clean/denom_v1.feather")
 
-## Only 970 which have good MASE
+## Is eligible means that it exists on the test set
+## Only 972 which have good MASE
 ## From 1052 sub, 1036 exists, 16 are missing
 summary_diff %>%
-  mutate(cat = case_when(val_diff > 0 ~ "(A) Good",
-                         val_diff == 0 ~ "(B) Zero",
-                         is.na(val_diff) ~ "(C) Empty")) %>%
+  mutate(cat = case_when(val_diff_test > 0 ~ "(A) Good",
+                         val_diff_test == 0 ~ "(B) Zero",
+                         is.na(val_diff_test) ~ "(C) Empty")) %>%
   count(cat, is_eligible)
 summary_diff %>%
   mutate(cat = case_when(val_diff_cv_43 > 0 ~ "(A) Good",
