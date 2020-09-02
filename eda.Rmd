@@ -4,7 +4,9 @@ author: "Rasyid Ridha"
 output: 
   html_document:
     toc: true
-    theme: simplex
+    toc_float: true
+    theme: cosmo
+    highlight: tango
     code_folding: hide
     df_print: paged
 ---
