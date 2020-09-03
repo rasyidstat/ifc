@@ -28,7 +28,7 @@ res <- bind_rows(
   select(-cv)
 
 res <- res %>%
-  group_by(site_code, product_code, block) %>%
+  group_by(method, site_code, product_code, block) %>%
   mutate(idx = block + row_number() - 1) %>%
   ungroup() %>%
   filter(!is.na(stock_distributed)) %>%

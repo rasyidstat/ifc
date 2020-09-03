@@ -49,6 +49,13 @@ train <- train %>%
 
 # Read MASE denom
 summary_diff <- read_feather("data/clean/denom_v1.feather")
+summary_diff_spread <- summary_diff %>% 
+  select(-cnt, -is_eligible) %>% 
+  gather(block, mase_constant, -site_code, -product_code) %>% 
+  mutate(block = gsub("val_diff_|val_diff_cv_", "", block),
+         block = ifelse(block == "test", "46", block),
+         block = as.integer(block),
+         mase_constant = ifelse(is.na(mase_constant), 0, mase_constant))
 
 # Aggregate for each site and product
 summary_train <- train %>% 
@@ -85,14 +92,16 @@ visualize_agg_prediction <- function(res_df) {
                           stock_distributed = preds,
                           cat = paste0("CV-", block))) %>% 
     ggplot(aes(ds, stock_distributed, color = cat)) +
-    geom_line()
+    geom_line() +
+    labs(title = paste0(unique(res_df$method), collapse = ","))
   ggplotly(p) 
 }
 
 # Visualize specific series
 visualize_specific_prediction <- function(res_df,
                                           site = "C1024", 
-                                          product = "AS27000") {
+                                          product = "AS27000",
+                                          rank = 0) {
   p <- train %>% 
     select(ds, site_code, product_code, stock_distributed) %>% 
     mutate(cat = "Actual") %>% 
@@ -105,9 +114,40 @@ visualize_specific_prediction <- function(res_df,
     filter(product_code == product,
            site_code == site) %>% 
     ggplot(aes(ds, stock_distributed, color = cat)) +
-    geom_line() 
-  ggplotly(p)
+    geom_line() +
+    labs(title = paste(rank, site, product, sep = "-"))
+  p
+}
+
+visualize_specific_prediction_top_bottom <- function(res_df, type = "top", n = 3) {
+  res_summary <- res_df %>% 
+    group_by(site_code, product_code) %>% 
+    summarise(mae = mean(ae),
+              actual = sum(stock_distributed)) %>% 
+    ungroup() %>% 
+    arrange(desc(mae)) %>% 
+    mutate(r = row_number())
+  if (type == "top") {
+    res_summary <- res_summary %>% 
+      arrange(desc(mae), desc(actual)) %>% 
+      head(n)
+  } else {
+    res_summary <- res_summary %>% 
+      filter(actual > 0) %>% 
+      mutate(mae_ratio = mae / actual) %>% 
+      arrange(mae_ratio) %>% 
+      head(n)
   }
+  output <- list()
+  for (i in 1:nrow(res_summary)) {
+    print(i)
+    visualize_specific_prediction(res_df, 
+                                  site = res_summary$site_code[i],
+                                  product = res_summary$product_code[i],
+                                  rank = res_summary$r[i]) -> output[[i]]
+  }
+  output
+}
 ```
 
 ```{r read-pred-result}
@@ -127,13 +167,34 @@ res_lgb_all <- read_prediction("data/temp/lgb_individual_allf_pred.csv", "LGB-ia
 res <- read_prediction("data/temp/res_all.csv")
 ```
 
-## LGB Evaluation
+```{r get-summary-all}
+# Combine and get summary for each series
+summary_res <- bind_rows(
+  res_lgb,
+  res_lgb_all,
+  res_lgb_all_rmse,
+  res_lgb_iv,
+  res
+  ) %>% 
+  group_by(method, site_code, product_code, block) %>% 
+  summarise(mae = mean(ae)) %>% 
+  ungroup() %>% 
+  left_join(summary_diff_spread) %>% 
+  left_join(summary_diff_spread %>% 
+              filter(block == 46) %>% 
+              select(-block) %>% 
+              rename(mase_constant_fix = mase_constant)) %>% 
+  mutate(mase = mae / mase_constant,
+         mase = ifelse(mase_constant == 0, 0, mase),
+         mase_2 = mae / mase_constant_fix,
+         mase_2 = ifelse(mase_constant_fix == 0, 0, mase_2))
+```
 
-We would like to evaluate our LGB model
+## Evaluation
 
 ### Can you predict Zero? 
 
-Most of zero time series predict no zero value but it is okay since the value is very low
+Using baseline LGB, most of zero time series predict no zero value but it is okay since the value is very low
 
 ```{r is-zero}
 res_lgb %>% 
@@ -145,86 +206,239 @@ res_lgb %>%
             pred_avg = mean(preds))
 ```
 
-### Overall prediction
+### Overall prediction {.tabset}
 
-Let's use baseline LGB for this. It seems that the overall prediction is very low!
+Evaluate on overall prediction from models that we have
 
-```{r overall-pred}
+#### LGB
+
+Since we use MAE as the objective, the overall forecast is very low
+
+```{r overall-pred-lgb}
 visualize_agg_prediction(res_lgb)
 ```
 
-### Individual prediction
+#### LGB-i
 
-#### Highest Error {.tabset}
-
-##### 1
-
-```{r}
-visualize_specific_prediction(res_lgb)
+```{r overall-pred-lgb-i}
+visualize_agg_prediction(res_lgb_iv)
 ```
 
-##### 2
+#### LGB-ia
 
-```{r}
-visualize_specific_prediction(res_lgb, "C1056", "AS27133")
+```{r overall-pred-lgb-ia}
+visualize_agg_prediction(res_lgb_all)
 ```
 
-##### 3
+#### LGB-iar
 
-```{r}
-visualize_specific_prediction(res_lgb, "C5015", "AS46000")
+Optimize RMSE, quite match with aggregated result
+
+```{r overall-pred-lgb-iar}
+visualize_agg_prediction(res_lgb_all_rmse)
 ```
 
-#### Lowest Error {.tabset}
+#### ARIMA
 
-##### 1
-
-```{r}
-visualize_specific_prediction(res_lgb, "C1077", "AS27133")
+```{r overall-arima}
+res %>% 
+  filter(method == "ARIMA") %>% 
+  visualize_agg_prediction()
 ```
 
-##### 2
+#### ETS
 
-```{r}
-visualize_specific_prediction(rest_lgb, "C1078", "AS27133")
+```{r overall-ets}
+res %>% 
+  filter(method == "ETS") %>% 
+  visualize_agg_prediction()
 ```
 
-##### 3
+#### Naive
 
-```{r}
-visualize_specific_prediction(res_lgb, "C1086", "AS27133")
+```{r overall-naive}
+res %>% 
+  filter(method == "Naive") %>% 
+  visualize_agg_prediction()
+```
+
+#### Regression
+
+```{r overall-regression}
+res %>% 
+  filter(method == "Regression") %>% 
+  visualize_agg_prediction()
+```
+
+#### XGBoost
+
+```{r overall-xgboost}
+res %>% 
+  filter(method == "XGBoost") %>% 
+  visualize_agg_prediction()
+```
+
+### Individual prediction {.tabset}
+
+Evaluate on individual prediction from models that we have, take highest and lowest error
+
+#### LGB
+
+```{r individual-pred-lgb}
+visualize_specific_prediction_top_bottom(res_lgb)
+visualize_specific_prediction_top_bottom(res_lgb, "bottom")
+```
+
+#### LGB-i
+
+```{r individual-pred-lgb-i}
+visualize_specific_prediction_top_bottom(res_lgb_iv)
+visualize_specific_prediction_top_bottom(res_lgb_iv, "bottom")
+```
+
+#### LGB-ia
+
+```{r individual-pred-lgb-ia}
+visualize_specific_prediction_top_bottom(res_lgb_all)
+visualize_specific_prediction_top_bottom(res_lgb_all, "bottom")
+```
+
+#### LGB-iar
+
+```{r individual-pred-lgb-iar}
+visualize_specific_prediction_top_bottom(res_lgb_all_rmse)
+visualize_specific_prediction_top_bottom(res_lgb_all_rmse, "bottom")
+```
+
+#### ARIMA
+
+```{r individual-pred-arima}
+visualize_specific_prediction_top_bottom(filter(res, method == "ARIMA"))
+visualize_specific_prediction_top_bottom(filter(res, method == "ARIMA"), "bottom")
+```
+
+#### ETS
+
+```{r individual-pred-ets}
+visualize_specific_prediction_top_bottom(filter(res, method == "ETS"))
+visualize_specific_prediction_top_bottom(filter(res, method == "ETS"), "bottom")
+```
+
+#### Naive
+
+```{r individual-pred-naive}
+visualize_specific_prediction_top_bottom(filter(res, method == "Naive"))
+visualize_specific_prediction_top_bottom(filter(res, method == "Naive"), "bottom")
+```
+
+#### Regression
+
+```{r individual-pred-regression}
+visualize_specific_prediction_top_bottom(filter(res, method == "Regression"))
+visualize_specific_prediction_top_bottom(filter(res, method == "Regression"), "bottom")
+```
+
+#### XGBoost
+
+```{r individual-pred-xgboost}
+visualize_specific_prediction_top_bottom(filter(res, method == "XGBoost"))
+visualize_specific_prediction_top_bottom(filter(res, method == "XGBoost"), "bottom")
 ```
 
 ## Ensemble
 
-### CV Correlation
+### MAE
 
-```{r}
-summary_res <- res_lgb %>% 
-  bind_rows(res_lgb_all,
-            res_lgb_all_rmse,
-            res_lgb_iv,
-            res) %>% 
-  group_by(method, site_code, product_code, block) %>% 
-  summarise(mae = mean(ae))
-summary_res %>% 
-  spread(method, mae) %>% 
+```{r mae-cv-correl}
+summary_res_spread <- summary_res %>% 
+  select(method, mae, site_code, product_code, block) %>% 
+  spread(method, mae) 
+summary_res_spread %>% 
   select(-block) %>% 
   ggcorr(label = TRUE, label_round = 2)
 ```
 
-```{r}
+```{r mae-overall}
 summary_res_spread %>% 
   group_by(block) %>% 
-  summarise_if(is.numeric, mean)
+  summarise_if(is.numeric, mean) %>% 
+  ungroup() %>% 
+  mutate(best_lgb_improvement = -(`LGB-ia` / Naive - 1))
+```
+
+### MASE
+
+```{r mase-cv-correl}
+summary_res_mase_spread <- summary_res %>% 
+  select(method, mase, site_code, product_code, block) %>% 
+  spread(method, mase) 
+summary_res_mase_spread %>% 
+  select(-block) %>% 
+  ggcorr(label = TRUE, label_round = 2)
+```
+
+```{r mase-overall}
+summary_res_mase_spread %>% 
+  group_by(block) %>% 
+  summarise_if(is.numeric, mean) %>% 
+  ungroup() %>% 
+  mutate(best_lgb_improvement = -(`LGB-ia` / Naive - 1))
+```
+
+```{r mase-summary}
+summary_res %>% 
+  filter(block %in% c(43, 40, 37, 34)) %>% 
+  group_by(block, method) %>% 
+  summarise_at(vars(mae, mase), mean) %>% 
+  ungroup() %>% 
+  group_by(method) %>% 
+  summarise(mase_avg = mean(mase),
+            mase_sd = sd(mase),
+            mae_avg = mean(mae),
+            mae_sd = sd(mae)) %>% 
+  arrange(mase_avg)
+```
+
+### MASE vs MAE Correlation
+
+Series by series correlation is very small ~13%
+
+```{r mase-mae-correl}
+summary_res %>% 
+  select(mae, mase) %>% 
+  cor()
+```
+
+If we see by series, it's around ~47%
+
+```{r mase-mae-summary-correl}
+summary_res %>% 
+  group_by(block, method) %>% 
+  summarise_at(vars(mae, mase), mean) %>% 
+  ungroup() %>% 
+  select(mae, mase) %>% 
+  cor()
+```
+
+```{r mase-mae-summary-correl-viz}
+p <- summary_res %>% 
+  # filter(block == 43) %>% 
+  group_by(block, method) %>% 
+  summarise_at(vars(mae, mase), mean) %>% 
+  ungroup() %>% 
+  ggplot(aes(mae, mase, color = method, size = block)) +
+  geom_point(alpha = 0.7) +
+  scale_size(range = c(1,4))
+ggplotly(p)
 ```
 
 ### Best Model Selection
 
 Let's combine the model! Using best model selection first!
 
-```{r}
+```{r best-selection}
 best_selection <- summary_res %>% 
+  ungroup() %>% 
   arrange(site_code, product_code, mae) %>% 
   group_by(site_code, product_code, block) %>% 
   mutate(r = row_number()) %>% 
@@ -233,14 +447,17 @@ best_selection <- summary_res %>%
   ungroup()
 best_selection %>% 
   group_by(block) %>% 
-  summarise(mae_mean = mean(mae)) %>% 
+  summarise(mase_avg = mean(mase),
+            mae_avg = mean(mae)) %>% 
   ungroup()
 ```
 
-It's superb! We can get MAE 7.xx using best selection method. Dramatic! Let's see which model are the best?
+It's superb! We can get MAE 6.xx using best selection method for all 10 models pool. Dramatic! Let's see which model are the best?
 
-```{r}
+```{r best-selection-share}
+# Remove MASE constant = 0 and MAE = 0
 best_selection %>% 
+  filter(mase_constant != 0, mae != 0) %>% 
   count(block, method) %>% 
   group_by(block) %>% 
   mutate(n_all = sum(n),
@@ -249,12 +466,27 @@ best_selection %>%
   spread(method, p)
 ```
 
-My mind blowns when 50% of the data use Naive! Super crazy! Let's do best model selection between LGB + Naive only
+```{r best-selection-share-viz}
+best_selection %>% 
+  filter(mase_constant != 0, mae != 0) %>% 
+  count(block, method) %>% 
+  group_by(block) %>% 
+  mutate(n_all = sum(n),
+         p = n / sum(n)) %>% 
+  select(-n) %>% 
+  ggplot(aes(reorder(method, p), p)) +
+  geom_boxplot() +
+  coord_flip() +
+  scale_y_continuous(limits = c(0, 0.25), labels = scales::percent) +
+  labs(x = NULL)
+```
 
-```{r}
+Our best model leads but interestingly worse models like LGB-iar and Naive can give a huge contribution. Superb!
+
+```{r best-selection-custom}
 best_selection <- summary_res %>% 
-  filter(method %in% c("LGB", "Naive")) %>% 
-  arrange(site_code, product_code, mae) %>% 
+  filter(method %in% c("LGB-ia", "Naive")) %>% 
+  arrange(site_code, product_code, mase) %>% 
   group_by(site_code, product_code, block) %>% 
   mutate(r = row_number()) %>% 
   filter(r == 1) %>% 
@@ -262,14 +494,16 @@ best_selection <- summary_res %>%
   ungroup()
 best_selection %>% 
   group_by(block) %>% 
-  summarise(mae_mean = mean(mae)) %>% 
+  summarise(mase_mean = mean(mase),
+            mae_mean = mean(mae)) %>% 
   ungroup()
 ```
  
 Quite good, we can reach 8.xx with help from Naive!
  
-```{r}
+```{r best-selection-custom-share}
 best_selection %>% 
+  filter(mase_constant != 0, mae != 0) %>% 
   count(block, method) %>% 
   group_by(block) %>% 
   mutate(n_all = sum(n),
@@ -277,71 +511,9 @@ best_selection %>%
   select(-n) %>% 
   spread(method, p)
 ```
- 
-Kaboom! 60% are using Naive :))
 
-## MAE (Overall)
+Since we use best model selection, what if we use averaging ensemble, or selecting the model based on specific criteria?
 
-```{r}
-res_all <- res %>% 
-  filter(cv == "res_cv1") %>% 
-  transmute(site_code,
-            product_code,
-            cv,
-            method,
-            y_test = map(res, pluck, "y_test"),
-            y_test_pred = map(res, pluck, "y_test_pred")) %>%
-  unnest()
-res_all %>% 
-  filter(!is.na(y_test)) %>% 
-  mutate(ae = abs(y_test - y_test_pred)) %>% 
-  group_by(method) %>% 
-  summarise(n = n(),
-            mae = mean(ae)) %>% 
-  ungroup() %>% 
-  arrange(mae)
-```
+### Averaging
 
-## MASE Calculation
-
-- 970 time series which are eligible, for test data
-- 969 time series which are eligible, for CV-1
-
-```{r}
-summary_res %>% 
-  filter(block == 43) %>% 
-  left_join(summary_diff) %>% 
-  mutate(mase = mae / val_diff_cv_43,
-         mase = replace_na(mase, 0),
-         mase = ifelse(is.infinite(mase), 0, mase)) %>% 
-  group_by(method) %>% 
-  summarise(mase_mean = mean(mase),
-            mase_sd = sd(mase)) %>% 
-  ungroup() %>% 
-  arrange(mase_mean)
-```
-
-```{r}
-summary_res %>% 
-  bind_rows(
-    bind_rows(
-      mutate(res_lgb_iv, method = "LGB-i"),
-      mutate(res_lgb_all, method = "LGB-ia"),
-      mutate(res_lgb_all_rmse, method = "LGB-iar")
-    ) %>% 
-      group_by(method, site_code, product_code, block) %>% 
-      summarise(mae = mean(ae))
-  ) %>% 
-  filter(block == 43) %>% 
-  left_join(summary_diff) %>% 
-  mutate(mase = mae / val_diff_test,
-         mase = replace_na(mase, 0),
-         mase = ifelse(is.infinite(mase), 0, mase)) %>% 
-  group_by(method) %>% 
-  summarise(mase_mean = mean(mase),
-            mase_sd = sd(mase)) %>% 
-  ungroup() %>% 
-  arrange(mase_mean) %>% 
-  mutate(improvement = -1*(mase_mean/1-1) )
-```
 
