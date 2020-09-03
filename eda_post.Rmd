@@ -385,6 +385,16 @@ summary_res_mase_spread %>%
   mutate(best_lgb_improvement = -(`LGB-ia` / Naive - 1))
 ```
 
+```{r mase-2}
+summary_res %>% 
+  select(method, mase_2, site_code, product_code, block) %>% 
+  spread(method, mase_2) %>% 
+  group_by(block) %>% 
+  summarise_if(is.numeric, mean) %>% 
+  ungroup() %>% 
+  mutate(best_lgb_improvement = -(`LGB-ia` / Naive - 1))
+```
+
 ```{r mase-summary}
 summary_res %>% 
   filter(block %in% c(43, 40, 37, 34)) %>% 
@@ -494,7 +504,8 @@ best_selection <- summary_res %>%
   ungroup()
 best_selection %>% 
   group_by(block) %>% 
-  summarise(mase_mean = mean(mase),
+  summarise(mase_2_mean = mean(mase_2),
+            mase_mean = mean(mase),
             mae_mean = mean(mae)) %>% 
   ungroup()
 ```
@@ -514,6 +525,137 @@ best_selection %>%
 
 Since we use best model selection, what if we use averaging ensemble, or selecting the model based on specific criteria?
 
+#### Best Selection Specific
+
+Best selection method based on previous block
+
+```{r avg-best-selection}
+# Best selection based on average previous block before 43
+avg_best_selection <- summary_res %>% 
+  # Filter model that you want to ensemble
+  # filter(method %in% c("LGB-ia", "ARIMA")) %>% 
+  filter(block < 43) %>% 
+  group_by(method, site_code, product_code) %>% 
+  summarise(mae = mean(mae),
+            mase = mean(mase)) %>% 
+  ungroup() %>% 
+  mutate(default_model = case_when(method == "LGB-ia" ~ 1,
+                                   method == "Naive" ~ 4,
+                                   method == "SNaive" ~ 5,
+                                   method == "ETS" ~ 2,
+                                   method == "ARIMA" ~ 3,
+                                   TRUE ~ 6)) %>% 
+  mutate(default_model = 0) %>%
+  arrange(site_code, product_code, mase, mae, default_model) %>% 
+  group_by(site_code, product_code) %>% 
+  mutate(r = row_number()) %>% 
+  filter(r == 1) %>% 
+  select(-r) %>% 
+  ungroup()
+
+# Select best method
+avg_best_selection <- summary_res %>% 
+  filter(method == "LGB-ia") %>% 
+  filter(block == 43) %>%
+  anti_join(avg_best_selection %>% 
+                   select(-mae, -mase, -method)) %>% 
+  bind_rows(
+    summary_res %>% 
+      filter(block == 43) %>%
+      inner_join(avg_best_selection %>% 
+                   select(-mae, -mase))
+  )
+avg_best_selection %>% 
+  count(method)
+avg_best_selection %>% 
+  group_by(block) %>% 
+  summarise(mase_2_avg = mean(mase_2),
+            mase_avg = mean(mase),
+            mae_avg = mean(mae)) %>% 
+  arrange(block)
+```
+
+MAE is getting better, it applies to MASE as well but the improvement is very small :)
+
 ### Averaging
 
+```{r averaging-function}
+average_ensemble <- function(df) {
+  df %>%  
+    group_by(site_code, product_code, idx, stock_distributed, block) %>% 
+    summarise(preds = mean(preds)) %>% 
+    ungroup() %>% 
+    mutate(ae = abs(stock_distributed - preds)) %>% 
+    group_by(site_code, product_code, block) %>% 
+    summarise(mae = mean(ae)) %>% 
+    ungroup() %>% 
+    left_join(summary_diff_spread) %>% 
+    left_join(summary_diff_spread %>% 
+                filter(block == 46) %>% 
+                select(-block) %>% 
+                rename(mase_constant_fix = mase_constant)) %>% 
+    mutate(mase = mae / mase_constant,
+           mase = ifelse(mase_constant == 0, 0, mase),
+           mase_2 = mae / mase_constant_fix,
+           mase_2 = ifelse(mase_constant_fix == 0, 0, mase_2))
+}
+get_block_summary <- function(df) {
+  df %>% 
+    group_by(block) %>% 
+    summarise(mae = mean(mae),
+              mase = mean(mase)) %>% 
+    ungroup()
+}
+get_all_summary <- function(df) {
+  df %>% 
+    filter(block %in% c(43, 40, 37, 34)) %>% 
+    summarise(mase_avg = mean(mase),
+              mase_sd = sd(mase),
+              mae_avg = mean(mae),
+              mae_sd = sd(mae)) %>% 
+    arrange(mase_avg)
+}
+```
 
+```{r averaging-pred-1}
+ensemble_summary <- bind_rows(
+  res_lgb,
+  res_lgb_all,
+  res_lgb_all_rmse,
+  res_lgb_iv,
+  res
+  ) %>% 
+  average_ensemble()
+ensemble_summary %>% 
+  get_block_summary() %>% 
+  get_all_summary()
+```
+
+Not good enough
+
+```{r averaging-pred-2}
+ensemble_summary <- bind_rows(
+  res_lgb,
+  res_lgb_all,
+  res_lgb_all_rmse,
+  res_lgb_iv,
+  ) %>% 
+  average_ensemble()
+ensemble_summary %>% 
+  get_block_summary() %>% 
+  get_all_summary()
+```
+
+```{r averaging-pred-3}
+ensemble_summary <- bind_rows(
+  res_lgb_all,
+  res_lgb_all_rmse,
+  filter(res, method == "Naive")
+  ) %>% 
+  average_ensemble()
+ensemble_summary %>% 
+  get_block_summary() %>% 
+  get_all_summary()
+```
+
+Not good :(

@@ -34,3 +34,5 @@ df_summary <- df_clean %>%
             upper_outlier_cnt_2 = sum(ifelse(stock_distributed >= val_mean + 2 * val_sd, 1, 0), na.rm = TRUE),
             lower_outlier_cnt_2 = sum(ifelse(stock_distributed <= val_mean - 2 * val_sd, 1, 0), na.rm = TRUE)) %>%
   ungroup()
+
+write_rds(df_summary, "data/clean/summary_basic.rds")
