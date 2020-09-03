@@ -188,6 +188,7 @@ summary_res <- bind_rows(
          mase = ifelse(mase_constant == 0, 0, mase),
          mase_2 = mae / mase_constant_fix,
          mase_2 = ifelse(mase_constant_fix == 0, 0, mase_2))
+write_rds(summary_res, "data/clean/summary_res.rds")
 ```
 
 ## Evaluation
