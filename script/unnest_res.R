@@ -11,11 +11,18 @@ res <- bind_rows(
   read_rds("data/temp/arima.rds") %>%
     mutate(method = "ARIMA"),
   read_rds("data/temp/ets.rds") %>%
-    mutate(method = "ETS")
+    mutate(method = "ETS"),
+  read_rds("data/temp/thetaf.rds") %>%
+    mutate(method = "Theta"),
+  read_rds("data/temp/tbats.rds") %>%
+    mutate(method = "TBATS"),
+  read_rds("data/temp/nnetar.rds") %>%
+    mutate(method = "NN")
 ) %>%
   mutate(stock_distributed = map(res, function(x) pluck(x, "y_test")),
-         preds = map(res, function(x) pluck(x, "y_test_pred"))) %>%
-  select(-res) %>%
+         preds = map(res, function(x) pluck(x, "y_test_pred")[1:3])) %>%
+  select(-res)
+res <- res %>%
   unnest() %>%
   mutate(block = case_when(cv == "res_cv1" ~ 43,
                            cv == "res_cv11" ~ 42,

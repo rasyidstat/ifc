@@ -68,12 +68,12 @@ Notion: [link](https://www.notion.so/rasyidridha/Tasks-e9c9299a80bf46e9aa6f44899
 - [x] Modeling: separate model for each lag (10.18, better so far)
 - [x] Modeling: recursive model (10.77)
 - [x] Modeling: all variables included (10.83)
-- [ ] Clustering + re-EDA
+- [x] Clustering + re-EDA
 - [x] Features engineering: scale to 0 to 1 for each series
 - [x] Features engineering: remove first NA value (not working)
-- [ ] Features engineering: normalize based on number of days in month
+- [x] Features engineering: normalize based on number of days in month
 - [ ] Features engineering: neighborhood features
-- [ ] Features engineering: time series features extraction
+- [x] Features engineering: time series features extraction
 - [x] Postprocessing: factor multiplication (between 1.05-1.20, tree models cannot get the trend)
 - [x] Post-EDA: MVP (explore LightGBM and ensemble technique)
 - [ ] External Data

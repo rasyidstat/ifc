@@ -534,8 +534,10 @@ Best selection method based on previous block
 # Best selection based on average previous block before 43
 avg_best_selection <- summary_res %>% 
   # Filter model that you want to ensemble
-  # filter(method %in% c("LGB-ia", "ARIMA")) %>% 
-  filter(block < 43) %>% 
+  # filter(method %in% c("LGB-ia", "LGB-i", "LGB", "Theta", "ETS", "ARIMA")) %>%
+  filter(!(method %in% c("NN"))) %>% 
+  filter(block <= 40) %>%
+  # filter(block == 42) %>%
   group_by(method, site_code, product_code) %>% 
   summarise(mae = mean(mae),
             mase = mean(mase)) %>% 
@@ -546,7 +548,7 @@ avg_best_selection <- summary_res %>%
                                    method == "ETS" ~ 2,
                                    method == "ARIMA" ~ 3,
                                    TRUE ~ 6)) %>% 
-  mutate(default_model = 0) %>%
+  # mutate(default_model = 0) %>%
   arrange(site_code, product_code, mase, mae, default_model) %>% 
   group_by(site_code, product_code) %>% 
   mutate(r = row_number()) %>% 
@@ -576,7 +578,59 @@ avg_best_selection %>%
   arrange(block)
 ```
 
-MAE is getting better, it applies to MASE as well but the improvement is very small :)
+It is getting worsen, let's find a way to select the best approach :)
+
+```{r avg-best-selection}
+# Should be significant on three CV :)
+rank_avg_best_selection <- summary_res %>% 
+  filter(block <= 40) %>% 
+  filter(block %in% c(34, 37, 40)) %>% 
+  mutate(default_model = case_when(method == "LGB-ia" ~ 1,
+                                   method == "Naive" ~ 4,
+                                   method == "SNaive" ~ 5,
+                                   method == "ETS" ~ 2,
+                                   method == "ARIMA" ~ 3,
+                                   TRUE ~ 6)) %>% 
+  arrange(site_code, product_code, mase, mae, default_model) %>% 
+  group_by(site_code, product_code, block) %>% 
+  mutate(r = row_number()) %>% 
+  ungroup() %>% 
+  arrange(site_code, product_code, method, block) %>% 
+  group_by(site_code, product_code, method) %>% 
+  summarise(mase_mean = mean(mase),
+            mae_mean = mean(mae),
+            rank_avg = mean(r))
+
+# View consistent model
+# rank_avg_best_selection %>% 
+#   filter(rank_avg < 2) %>% 
+#   arrange(desc(mase_mean))
+
+# Select best method
+avg_best_selection <- summary_res %>% 
+  filter(method == "LGB-ia") %>% 
+  filter(block == 43) %>%
+  anti_join(rank_avg_best_selection %>% 
+              filter(rank_avg <= 1) %>% 
+              select(site_code, product_code)) %>% 
+  bind_rows(
+    summary_res %>% 
+      filter(block == 43) %>%
+      inner_join(rank_avg_best_selection %>% 
+                   filter(rank_avg <= 1) %>% 
+                   select(site_code, product_code, method))
+  )
+avg_best_selection %>% 
+  count(method)
+avg_best_selection %>% 
+  group_by(block) %>% 
+  summarise(mase_2_avg = mean(mase_2),
+            mase_avg = mean(mase),
+            mae_avg = mean(mae)) %>% 
+  arrange(block)
+```
+
+Again, the improvement is not really significant
 
 ### Averaging
 
@@ -660,3 +714,20 @@ ensemble_summary %>%
 ```
 
 Not good :(
+
+### Cluster Evaluatio
+
+```{r cluster-mase}
+summary_cluster <- read_rds("data/clean/cluster_v1.rds")
+summary_cluster <- summary_res_mase_spread %>% 
+  rename_with(~tolower(gsub("-", "_", .x, fixed = TRUE))) %>% 
+  left_join(summary_cluster %>% 
+              select(site_code, product_code, cluster))
+summary_cluster %>% 
+  filter(block == 43) %>% 
+  select(-(site_code:block)) %>% 
+  group_by(cluster) %>% 
+  summarise_all(mean) %>% 
+  arrange(lgb_ia)
+```
+

@@ -1,6 +1,22 @@
 # Aggregate data
 
 df_clean <- read_feather("data/clean/ifc_clean.feather")
+# First non NA date
+df_summary_no_na <- df_clean %>%
+  group_by(site_code, product_code) %>%
+  mutate(isna_cumsum = cumsum(ifelse(isna, 0, 1))) %>%
+  filter(isna_cumsum > 0) %>%
+  summarise(first_date_no_na = min(ds),
+            cnt_v2_no_na = n()) %>%
+  ungroup()
+df_summary_no_zero <- df_clean %>%
+  mutate(stock_distributed = replace_na(stock_distributed, 0)) %>%
+  group_by(site_code, product_code) %>%
+  mutate(iszero_cumsum = cumsum(ifelse(stock_distributed == 0, 0, 1))) %>%
+  filter(iszero_cumsum > 0) %>%
+  summarise(first_date_no_zero = min(ds),
+            cnt_v3_no_zero = n()) %>%
+  ungroup()
 df_summary <- df_clean %>%
   group_by(site_code, product_code) %>%
   summarise(cnt = n(),
@@ -33,6 +49,11 @@ df_summary <- df_clean %>%
             lower_outlier_cnt = sum(ifelse(stock_distributed <= val_mean - 2.5 * val_sd, 1, 0), na.rm = TRUE),
             upper_outlier_cnt_2 = sum(ifelse(stock_distributed >= val_mean + 2 * val_sd, 1, 0), na.rm = TRUE),
             lower_outlier_cnt_2 = sum(ifelse(stock_distributed <= val_mean - 2 * val_sd, 1, 0), na.rm = TRUE)) %>%
-  ungroup()
+  ungroup() %>%
+  left_join(df_summary_no_na) %>%
+  left_join(df_summary_no_zero) %>%
+  mutate(first_date_no_zero = replace_na(first_date_no_zero, ymd(20191001)),
+         cnt_v3_no_zero = replace_na(cnt_v3_no_zero, 0)) %>%
+  mutate_at(vars(val_sd:val_m12), ~replace_na(., 0))
 
 write_rds(df_summary, "data/clean/summary_basic.rds")
