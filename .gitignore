@@ -4,5 +4,6 @@
 .Ruserdata
 data/raw/*
 data/temp/*
+submission/data/*
 README.html
 !data/raw/.placeholder
