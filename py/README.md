@@ -1,13 +1,13 @@
 # USAID’s Intelligent Forecasting Submission
 
-## Model Summary
+A. Model Summary
 
 * Model: separate three LightGBM models to predict stock distributed for t+1, t+2, and t+3
 * Cross-validation: 4x time series CV
   * Block 43: Jul-Sep 2019
   * Block 40: Apr-Jun 2019
   * Block 37: Jan-Mar 2019
-  * Block 34: Oct-Dec 2018
+  * Block 34: Oct-Dec 2018s
 * Features engineering
   * Lag t-1, t-2, t-3, t-4
   * Longitude, latitude
@@ -19,28 +19,34 @@
 
 There are three submissions generated:
 
-* Submission-1: best LightGBM model based on CV mean and standard deviation
-* Submission-2: average ensemble of all LightGBM model from different seed
-* Submission-3: LightGBM model combination with traditional models
+* `submission1.csv` best LightGBM model based on CV mean and standard deviation
+* `submission2.csv` average ensemble of all LightGBM model from different seed
+* `submission3.csv` LightGBM model combination with traditional models
 
-## Comparison with Traditional Models
+**Comparison with Traditional Models**
 
-Comparison with traditional statistical forecasting model such as: ARIMA, exponential smoothing, Naive and Linear Regression. LightGBM model outperform traditional models on all CV metrics result.
+Comparison with traditional statistical forecasting model such as: ARIMA, exponential smoothing, Naive, Linear Regression, etc. LightGBM model outperform traditional models on all CV metrics result.
 
-## Recommendation
+---
 
-To build a better model, we also need better data quality.
+B. Recommendation
 
-- Reduce missing values on the dataset
-- Have more granular data, in daily level rather than monthly level
+- LightGBM model is very quick and have great accuracy. It outperforms other traditional statistical forecasting model. The next step is to scale the model and implement it on the field.
+- To build a better prediction, it is recommended to invest more in data quality. If possible, try to get more granular data (in daily level rather than monthly level) so the action plan based on the forecasting result will be faster. 
 
-## Checklists
+C. Sharing the Model
+
+The model is free to be shared and published on the other channel.
+
+## Appendix
+
+### Checklists
 
 - [x] The code being submitted was developed in a programming language supported by Jupyter Notebook
 - [x] Any critical comments/markups to the code being submitted are included using markdowns cells
 - [x] The Jupyter Notebook model package is uploaded (file extension: .ipynb) in the "P​rediction and Model Submission" ​section of the entry form under "​Please upload your model from Jupyter Notebook."
 
-## License
+### License
 
 Shield: [![CC BY 4.0][cc-by-shield]][cc-by]
 
@@ -53,7 +59,7 @@ This work is licensed under a
 [cc-by-image]: https://i.creativecommons.org/l/by/4.0/88x31.png
 [cc-by-shield]: https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg
 
-## Contacts
+### Contacts
 
 For further details, please can contact me at rasyidstat@gmail.com
 
