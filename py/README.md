@@ -7,7 +7,7 @@ A. Model Summary
   * Block 43: Jul-Sep 2019
   * Block 40: Apr-Jun 2019
   * Block 37: Jan-Mar 2019
-  * Block 34: Oct-Dec 2018s
+  * Block 34: Oct-Dec 2018
 * Features engineering
   * Lag t-1, t-2, t-3, t-4
   * Longitude, latitude
