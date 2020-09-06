@@ -44,8 +44,11 @@ theme_set(theme_nunito())
 ```{r read-data}
 # Read train
 train <- read_feather("data/clean/ifc_clean.feather")
+cluster <- read_rds("data/clean/cluster_v1.rds")
 train <- train %>%
-  mutate(stock_distributed = replace_na(stock_distributed, 0))
+  mutate(stock_distributed = replace_na(stock_distributed, 0)) %>% 
+  left_join(cluster %>% 
+              select(site_code, product_code, cluster))
 
 # Read MASE denom
 summary_diff <- read_feather("data/clean/denom_v1.feather")
@@ -102,6 +105,10 @@ visualize_specific_prediction <- function(res_df,
                                           site = "C1024", 
                                           product = "AS27000",
                                           rank = 0) {
+  cl <- train %>% 
+    filter(product_code == product,
+           site_code == site) %>% 
+    pull(cluster)
   p <- train %>% 
     select(ds, site_code, product_code, stock_distributed) %>% 
     mutate(cat = "Actual") %>% 
@@ -115,7 +122,7 @@ visualize_specific_prediction <- function(res_df,
            site_code == site) %>% 
     ggplot(aes(ds, stock_distributed, color = cat)) +
     geom_line() +
-    labs(title = paste(rank, site, product, sep = "-"))
+    labs(title = paste(rank, site, product, "cluster", cl, sep = "-"))
   p
 }
 
@@ -163,6 +170,9 @@ res_lgb_all_rmse <- read_prediction("data/temp/lgb_individual_allf_pred_rmse.csv
 # Baseline LGB using all features, separate individual models
 res_lgb_all <- read_prediction("data/temp/lgb_individual_allf_pred.csv", "LGB-ia")
 
+# Final LGB using all features
+res_lgb_final <- read_prediction("submission/data/temp/lgb_vallf_seed_2020_lag_6_individual_pred.csv", "LGB-ia-2")
+
 # R model
 res <- read_prediction("data/temp/res_all.csv")
 ```
@@ -171,6 +181,7 @@ res <- read_prediction("data/temp/res_all.csv")
 # Combine and get summary for each series
 summary_res <- bind_rows(
   res_lgb,
+  res_lgb_final %>% filter(block != 46),
   res_lgb_all,
   res_lgb_all_rmse,
   res_lgb_iv,
@@ -715,13 +726,12 @@ ensemble_summary %>%
 
 Not good :(
 
-### Cluster Evaluatio
+### Cluster Evaluation
 
 ```{r cluster-mase}
-summary_cluster <- read_rds("data/clean/cluster_v1.rds")
 summary_cluster <- summary_res_mase_spread %>% 
   rename_with(~tolower(gsub("-", "_", .x, fixed = TRUE))) %>% 
-  left_join(summary_cluster %>% 
+  left_join(cluster %>% 
               select(site_code, product_code, cluster))
 summary_cluster %>% 
   filter(block == 43) %>% 
@@ -730,4 +740,68 @@ summary_cluster %>%
   summarise_all(mean) %>% 
   arrange(lgb_ia)
 ```
+
+### Cluster Check
+
+```{r}
+visualize_specific_prediction(res_lgb_final,
+                              "C1077",
+                              "AS27000")
+visualize_specific_prediction(res %>% filter(method == "ARIMA"),
+                              "C1077",
+                              "AS27000")
+```
+
+```{r}
+cluster %>% 
+  filter(zero_na_cnt < 0.05) %>%
+  # filter(cluster == 8) %>% 
+  arrange(desc(trend))
+```
+
+```{r}
+visualize_specific_prediction(res_lgb_final,
+                              "C1082",
+                              "AS27000")
+```
+
+```{r}
+visualize_specific_prediction(res_lgb_final,
+                              "C4037",
+                              "AS46000")
+```
+
+```{r}
+visualize_specific_prediction(res_lgb_final,
+                              "C1011",
+                              "AS27133")
+```
+
+
+```{r}
+# Cluster 10
+visualize_specific_prediction(res_lgb_final,
+                              "C1011",
+                              "AS27133")
+visualize_specific_prediction(res %>% filter(method == "Regression"),
+                              "C1011",
+                              "AS27133")
+```
+
+Find prediction below median value, do median benchmark
+
+```{r}
+median_summary <- train %>% 
+  group_by(site_code, product_code) %>%
+  mutate(isna_cumsum = cumsum(ifelse(isna, 0, 1))) %>%
+  filter(isna_cumsum > 0) %>% 
+  summarise(val_median = median(stock_distributed))
+res_lgb_final %>% 
+  left_join(median_summary) %>% 
+  mutate(below_median = preds < val_median) %>% 
+  group_by(below_median, block) %>% 
+  summarise(n = n(),
+            mae = mean(ae))
+```
+
 
