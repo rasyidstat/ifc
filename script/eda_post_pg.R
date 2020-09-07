@@ -35,3 +35,7 @@ train %>%
   summarise(pred = median(stock_distributed, na.rm = TRUE))
 df_missing %>%
   anti_join(train)
+
+train %>%
+  arrange(site_code, product_code, ds) %>%
+  View()
