@@ -6,4 +6,5 @@ data/raw/*
 data/temp/*
 submission/data/*
 README.html
+check/*
 !data/raw/.placeholder

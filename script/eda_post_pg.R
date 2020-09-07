@@ -24,3 +24,14 @@ visualize_agg_prediction(res_lgb_final)
 visualize_specific_prediction_top_bottom(res_lgb_final)
 
 
+
+# Not found ---------------------------------------------------------------
+df_missing <- read_csv("data/sub_not_found.csv") %>%
+  select(-X1)
+train <- read_feather("data/clean/ifc_clean.feather")
+train %>%
+  inner_join(df_missing) %>%
+  group_by(site_code, product_code) %>%
+  summarise(pred = median(stock_distributed, na.rm = TRUE))
+df_missing %>%
+  anti_join(train)

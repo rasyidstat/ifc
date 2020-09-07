@@ -2,7 +2,7 @@
 
 ### Model Summary
 
-Separate three LightGBM models to predict data for t+1, t+2, and t+3
+Separate three **LightGBM models** to predict data for t+1, t+2, and t+3
 
 * Cross-validation: 4x time series CV
   * Block 43: Jul-Sep 2019
@@ -28,8 +28,6 @@ There are three submissions generated:
 
 Comparison with traditional statistical forecasting model such as: ARIMA, exponential smoothing, Naive, Linear Regression, etc. LightGBM model outperform traditional models on all CV metrics result.
 
-
-
 ### Recommendation
 
 - LightGBM model is very quick and have great accuracy. It outperforms other traditional statistical forecasting model. The next step is to scale the model and implement it on the field.
@@ -40,6 +38,12 @@ Comparison with traditional statistical forecasting model such as: ARIMA, expone
 The model is free to be shared and published on the other channel.
 
 ## Appendix
+
+### How to run
+
+1. Generate combined dataset saved as `ifc_clean.csv` using `prep_data.R`
+2. Evaluate CV and generate prediction using `generate_prediction.ipynb`
+3. Generate three submissions using `submission1.ipynb`, `submission2.ipynb`, and `submission3.ipynb`
 
 ### Checklists
 
