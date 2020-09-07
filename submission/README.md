@@ -20,9 +20,9 @@ Separate three **LightGBM models** to predict data for t+1, t+2, and t+3
 
 There are three submissions generated:
 
-* `submission1.csv` best LightGBM model based on CV mean and standard deviation
-* `submission2.csv` average ensemble of all LightGBM model from different seed
-* `submission3.csv` LightGBM model combination with traditional models
+* `submission1.csv` average ensemble of all LightGBM model from different seed
+* `submission2.csv` ???
+* `submission3.csv` ???
 
 **Comparison with Traditional Models**
 
@@ -42,7 +42,7 @@ The model is free to be shared and published on the other channel.
 ### How to run
 
 1. Generate combined dataset saved as `ifc_clean.csv` using `prep_data.R`
-2. Evaluate CV and generate prediction using `generate_prediction.ipynb`
+2. Evaluate CV and generate prediction using `prediction.ipynb`
 3. Generate three submissions using `submission1.ipynb`, `submission2.ipynb`, and `submission3.ipynb`
 
 ### Checklists
