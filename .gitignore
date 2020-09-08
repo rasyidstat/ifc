@@ -7,4 +7,5 @@ data/temp/*
 submission/data/*
 README.html
 check/*
+check.html
 !data/raw/.placeholder

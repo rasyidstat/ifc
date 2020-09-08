@@ -1,0 +1,294 @@
+---
+title: "Check Top Series"
+author: "Rasyid Ridha"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cosmo
+    highlight: tango
+    code_folding: hide
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, 
+  warning = FALSE, 
+  message = FALSE,
+  fig.path = "check/"
+)
+```
+
+The goals are to evaluate forecast result and do post-processing which can improve the scores
+
+* Evaluate all models: LGB, ARIMA, regression
+* Evaluate MAE score
+* Evaluate MASE score
+* Evaluate forecast result (high error vs low error)
+* Best model selection (how can we push the model?)
+
+```{r library}
+library(lubridate)
+library(tidyverse)
+library(hrbrthemes)
+library(forcats)
+library(plotly)
+library(feather)
+library(skimr)
+library(mrsq)
+library(GGally)
+theme_set(theme_nunito())
+```
+
+```{r}
+sub_final <- read_csv("submission/submission2.csv")
+```
+
+```{r read-data}
+# Read train
+train <- read_feather("data/clean/ifc_clean.feather")
+cluster <- read_rds("data/clean/cluster_v1.rds")
+train <- train %>%
+  mutate(stock_distributed = replace_na(stock_distributed, 0)) %>% 
+  left_join(cluster %>% 
+              select(site_code, product_code, cluster))
+
+# Read MASE denom
+summary_diff <- read_feather("data/clean/denom_v1.feather")
+summary_diff_spread <- summary_diff %>% 
+  select(-cnt, -is_eligible) %>% 
+  gather(block, mase_constant, -site_code, -product_code) %>% 
+  mutate(block = gsub("val_diff_|val_diff_cv_", "", block),
+         block = ifelse(block == "test", "46", block),
+         block = as.integer(block),
+         mase_constant = ifelse(is.na(mase_constant), 0, mase_constant))
+
+# Aggregate for each site and product
+summary_train <- train %>% 
+  group_by(site_code, product_code) %>% 
+  summarise(stock_distributed_sum = sum(stock_distributed))
+```
+
+```{r quick-snippet}
+# Read prediction csv
+read_prediction <- function(path, method_name = NULL) {
+  x <- read.csv(path) %>% 
+    mutate(preds = ifelse(preds < 0, 0, preds),
+           ae = abs(stock_distributed - preds))
+  if (length(method_name) > 0) {
+    x <- x %>% 
+      mutate(method = method_name) %>% 
+      select(method, everything())
+  }
+  x
+}
+
+# Visualize aggregated series
+visualize_agg_prediction <- function(res_df) {
+  p <- train %>% 
+    inner_join(res_df %>% 
+                 count(site_code, product_code) %>% 
+                 select(-n)) %>% 
+    group_by(ds) %>% 
+    summarise(stock_distributed = sum(stock_distributed)) %>% 
+    ungroup() %>% 
+    mutate(cat = "Actual") %>% 
+    bind_rows(res_df %>% 
+                group_by(block, idx) %>% 
+                summarise(preds = sum(preds)) %>% 
+                ungroup() %>% 
+                transmute(ds = as.Date("2018-10-01") + months(idx - 34),
+                          stock_distributed = preds,
+                          cat = paste0("CV-", block))) %>% 
+    ggplot(aes(ds, stock_distributed, color = cat)) +
+    geom_line() +
+    labs(title = paste0(unique(res_df$method), collapse = ","))
+  ggplotly(p) 
+}
+
+# Visualize specific series
+visualize_specific_prediction <- function(res_df,
+                                          site = "C1024", 
+                                          product = "AS27000",
+                                          rank = 0, 
+                                          mase = NA) {
+  cl <- train %>% 
+    filter(product_code == product,
+           site_code == site) %>% 
+    pull(cluster)
+  p <- train %>% 
+    mutate(stock_distributed = ifelse(isna, NA_real_, stock_distributed)) %>% 
+    select(ds, site_code, product_code, stock_distributed) %>% 
+    mutate(cat = "Actual") %>% 
+    bind_rows(res_df %>% 
+                transmute(ds = as.Date("2018-10-01") + months(idx - 34),
+                          site_code, product_code,
+                          stock_distributed = preds,
+                          error = ae,
+                          cat = paste0("CV-", block))) %>% 
+    filter(product_code == product,
+           site_code == site) %>% 
+    ggplot(aes(ds, stock_distributed, color = cat)) +
+    geom_line() +
+    labs(title = paste(rank, site, product, "cluster", cl, "mase", round(mase, 2), sep = "-"))
+  p
+}
+
+visualize_specific_prediction_top_bottom <- function(res_df, type = "top", n = 3) {
+  res_summary <- res_df %>% 
+    group_by(site_code, product_code) %>% 
+    summarise(mae = mean(ae),
+              actual = sum(stock_distributed)) %>% 
+    ungroup() %>% 
+    arrange(desc(mae)) %>% 
+    mutate(r = row_number())
+  if (type == "top") {
+    res_summary <- res_summary %>% 
+      arrange(desc(mae), desc(actual)) %>% 
+      head(n)
+  } else {
+    res_summary <- res_summary %>% 
+      filter(actual > 0) %>% 
+      mutate(mae_ratio = mae / actual) %>% 
+      arrange(mae_ratio) %>% 
+      head(n)
+  }
+  output <- list()
+  for (i in 1:nrow(res_summary)) {
+    print(i)
+    visualize_specific_prediction(res_df, 
+                                  site = res_summary$site_code[i],
+                                  product = res_summary$product_code[i],
+                                  rank = res_summary$r[i]) -> output[[i]]
+  }
+  output
+}
+```
+
+```{r read-pred-result}
+# Baseline LGB
+res_lgb <- read_prediction("data/temp/lgb_baseline_pred.csv", "LGB")
+
+# Baseline LGB with separate individual models
+res_lgb_iv <- read_prediction("data/temp/lgb_individual_pred.csv", "LGB-i")
+
+# Baseline LGB using all features, optimizing RMSE
+res_lgb_all_rmse <- read_prediction("data/temp/lgb_individual_allf_pred_rmse.csv", "LGB-iar")
+
+# Baseline LGB using all features, separate individual models
+res_lgb_all <- read_prediction("data/temp/lgb_individual_allf_pred.csv", "LGB-ia")
+
+# Final LGB using all features
+res_lgb_final <- read_prediction("submission/data/ensemble_postprocess.csv", "LGB-ia-2")
+
+# R model
+res <- read_prediction("data/temp/res_all.csv")
+```
+
+```{r get-summary-all}
+# Combine and get summary for each series
+summary_res <- bind_rows(
+  res_lgb,
+  res_lgb_final %>% filter(block != 46),
+  res_lgb_all,
+  res_lgb_all_rmse,
+  res_lgb_iv,
+  res
+  ) %>% 
+  group_by(method, site_code, product_code, block) %>% 
+  summarise(mae = mean(ae)) %>% 
+  ungroup() %>% 
+  left_join(summary_diff_spread) %>% 
+  left_join(summary_diff_spread %>% 
+              filter(block == 46) %>% 
+              select(-block) %>% 
+              rename(mase_constant_fix = mase_constant)) %>% 
+  mutate(mase = mae / mase_constant,
+         mase = ifelse(mase_constant == 0, 0, mase),
+         mase_2 = mae / mase_constant_fix,
+         mase_2 = ifelse(mase_constant_fix == 0, 0, mase_2))
+```
+
+## Evaluation
+
+### Can you predict Zero? 
+
+Using baseline LGB, most of zero time series predict no zero value but it is okay since the value is very low
+
+```{r is-zero}
+res_lgb_final %>% 
+  inner_join(summary_train %>%
+               filter(stock_distributed_sum == 0)) %>%
+  mutate(is_zero = ae == 0) %>% 
+  group_by(is_zero) %>% 
+  summarise(n = n(),
+            pred_avg = mean(preds))
+```
+
+### Overall prediction
+
+```{r}
+visualize_agg_prediction(res_lgb_final)
+```
+
+### Worst MASE
+
+```{r}
+summary_mase <- summary_res %>% 
+  filter(method == "LGB-ia-2") %>% 
+  left_join(cluster) %>% 
+  filter(block == 43) %>% 
+  arrange(desc(val_mean)) %>% 
+  mutate(rank = row_number()) %>% 
+  # Pick only data on submission
+  inner_join(sub_final %>% 
+               count(site_code, product_code) %>% 
+               select(-n))
+```
+
+Let's visualize for each cluster, show top 50 based on different features
+
+```{r}
+# Return top 
+viz_cluster <- function(cluster_final, cluster_idx = 8) {
+  p <- list()
+  for (i in 1:nrow(cluster_final)) {
+    p[[i]] <- visualize_specific_prediction(res_lgb_final, 
+                                            cluster_final[i,] %>% pull(site_code),
+                                            cluster_final[i,] %>% pull(product_code),
+                                            cluster_final[i,] %>% pull(rank),
+                                            cluster_final[i,] %>% pull(mase))
+  }
+  p
+}
+```
+
+```{r}
+visualize_specific_prediction(res_lgb_final,
+                              "C1011",
+                              "AS27133")
+```
+
+```{r}
+visualize_specific_prediction(res_lgb_final,
+                              "C1077",
+                              "AS27000")
+```
+
+```{r}
+summary_mase %>% 
+  filter(cnt_v3_no_zero <= 0.5) %>% 
+  arrange(desc(linearity)) %>% 
+  head(10) %>% 
+  viz_cluster()
+```
+
+
+```{r}
+summary_mase %>% 
+  arrange(desc(cnt_v3_no_zero)) %>% 
+  head(10) %>% 
+  viz_cluster()
+```
+

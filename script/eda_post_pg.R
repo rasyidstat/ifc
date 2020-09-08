@@ -39,3 +39,28 @@ df_missing %>%
 train %>%
   arrange(site_code, product_code, ds) %>%
   View()
+
+
+
+# Adjustment --------------------------------------------------------------
+median_summary <- train %>%
+  group_by(site_code, product_code) %>%
+  mutate(isna_cumsum = cumsum(ifelse(isna | stock_distributed == 0, 0, 1))) %>%
+  filter(isna_cumsum > 0) %>%
+  summarise(val_median = median(stock_distributed))
+
+res_lgb_final %>%
+  left_join(median_summary) %>%
+  left_join(summary_diff_spread) %>%
+  mutate(pred_diff_with_median = (preds - val_median),
+         is_negative = val_median > preds,
+         pred_diff_with_median_norm = abs(preds - val_median) / val_median,
+         pred_diff_with_median_norm = ifelse(is.infinite(pred_diff_with_median_norm),
+                                             NA_real_, pred_diff_with_median_norm)) %>%
+  View()
+
+
+
+
+
+

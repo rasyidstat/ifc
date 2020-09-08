@@ -171,7 +171,7 @@ res_lgb_all_rmse <- read_prediction("data/temp/lgb_individual_allf_pred_rmse.csv
 res_lgb_all <- read_prediction("data/temp/lgb_individual_allf_pred.csv", "LGB-ia")
 
 # Final LGB using all features
-res_lgb_final <- read_prediction("submission/data/temp/lgb_vallf_seed_2020_lag_6_individual_pred.csv", "LGB-ia-2")
+res_lgb_final <- read_prediction("submission/data/ensemble1.csv", "LGB-ia-2")
 
 # R model
 res <- read_prediction("data/temp/res_all.csv")
@@ -777,6 +777,20 @@ visualize_specific_prediction(res_lgb_final,
                               "AS27133")
 ```
 
+```{r}
+# High difference with median
+visualize_specific_prediction(res_lgb_final,
+                              "C1090",
+                              "AS27000")
+# High difference normalized
+visualize_specific_prediction(res_lgb_final,
+                              "C1051",
+                              "AS27133")
+visualize_specific_prediction(res_lgb_final,
+                              "C1090",
+                              "AS27134")
+```
+
 
 ```{r}
 # Cluster 10
@@ -804,4 +818,25 @@ res_lgb_final %>%
             mae = mean(ae))
 ```
 
+```{r}
+res_lgb_final %>% 
+  left_join(median_summary) %>% 
+  mutate(below_median = preds < val_median*0.5,
+         preds = ifelse(preds < val_median*0.5, preds + 0.5*val_median, preds),
+         ae = abs(stock_distributed - preds)) %>% 
+  group_by(below_median, block) %>% 
+  summarise(n = n(),
+            mae = mean(ae))
+```
+
+```{r}
+res_lgb_final %>% 
+  left_join(median_summary) %>% 
+  mutate(below_median = preds < val_median,
+         preds = ifelse(preds < val_median, preds + (val_median), preds),
+         ae = abs(stock_distributed - preds)) %>% 
+  group_by(below_median, block) %>% 
+  summarise(n = n(),
+            mae = mean(ae))
+```
 
