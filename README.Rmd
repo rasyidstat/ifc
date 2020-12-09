@@ -9,6 +9,11 @@ knitr::opts_chunk$set(echo = TRUE)
 
 USAID's Intelligent Forecasting: Model Future Contraceptive Use
 
+## Status
+
+* Forecasting prize: MASE (got 2nd rank, MASE: 0.9980, [source](https://competitions4dev.org/forecastingprize/winners))
+* Co-creation phase: RMSSE (ongoing, deadline: 16 Dec 2020)
+
 ## Data
 
 Source: [Kaggle](https://www.kaggle.com/darisdzakwanhoesien2/usaids-model-future-contraceptive-use)
@@ -44,17 +49,6 @@ Additional information:
 * Jul - Sep 2019 (42 data)
 * Oct - Dec 2018 (33 data)
 
-8 times CV (moving monthly)
-
-* Jan - Mar 2019 (CV 4) OK
-* Feb - Apr 2019 (CV 3.1)
-* March - May 2019 (CV 3)
-* April - Jun 2019 (CV 2.1) OK
-* May - Jul 2019 (CV 2)
-* Jun - Aug 2019 (CV 1.1)
-* Jul - Sep 2019 (CV 1)  OK
-* Oct - Dec 2018 (CV 5) OK
-
 ## Tasks
 
 Notion: [link](https://www.notion.so/rasyidridha/Tasks-e9c9299a80bf46e9aa6f448998ff40fc?p=86a7c89a14bb48708f968a1c8f854b2b)
@@ -72,20 +66,29 @@ Notion: [link](https://www.notion.so/rasyidridha/Tasks-e9c9299a80bf46e9aa6f44899
 - [x] Features engineering: scale to 0 to 1 for each series
 - [x] Features engineering: remove first NA value (not working)
 - [x] Features engineering: normalize based on number of days in month
-- [ ] Features engineering: neighborhood features
 - [x] Features engineering: time series features extraction
 - [x] Postprocessing: factor multiplication (between 1.05-1.20, tree models cannot get the trend)
 - [x] Post-EDA: MVP (explore LightGBM and ensemble technique)
-- [ ] External Data
+
+Not yet tried:
+
+- [ ] Features engineering: neighborhood features
+- [ ] Features engineering: add external data
 - [ ] Function: create universal function (recursive, individual vs all)
 - [ ] Modeling: ETS + LightGBM (R for ETS, Python for LightGBM)
 - [ ] Modeling: predict zero values (classification)
 
-## Baseline Result
+## Result
 
-So far, the best baseline model is single LightGBM with lag 3, 4 months. 
+Please check `submission` directory or `eda_post.html` for CV scores detail (MASE). The temporary CV predictions are not found because the they are being ignored on `.gitignore`, it is hard to reproduce all experiments.
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+* Model 1: CV (1.0267), Final LB (0.998)
+* Model 2: CV (1.0186), Final LB (1.034), overfitted (yet zero clipping postprocessing can improve, the result might be different if we applied it to Model 1)
+* Model 3: CV (1.0905), Final LB (1.051)
+
+<!-- So far, the best baseline model is single LightGBM with lag 3, 4 months.  -->
+
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 library(tidyverse)
 library(furrr)
 source("script/util.R")
@@ -159,7 +162,7 @@ res_summary <- res %>%
 knitr::kable(res_summary, digits = 2)
 ```
 
-Also, we calculate RMSE to compare result with [Zindi leaderboard](https://zindi.africa/competitions/usaids-intelligent-forecasting-challenge-model-future-contraceptive-use/leaderboard)
+Previously, we also calculated RMSE to compare result with [Zindi leaderboard](https://zindi.africa/competitions/usaids-intelligent-forecasting-challenge-model-future-contraceptive-use/leaderboard)
 
 - LGB Single + Lag 3,4 + Categorical + 1.2 factor --> **RMSE: 38.33**
 - LGB Single + Lag 3,4 + Categorical --> **RMSE: 38.72**
