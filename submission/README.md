@@ -21,8 +21,8 @@ Separate three **LightGBM models** to predict data for t+1, t+2, and t+3
 There are three submissions generated:
 
 * `submission1.csv` average ensemble of all LightGBM model from different seed
-* `submission2.csv` ???
-* `submission3.csv` ???
+* `submission2.csv` same like submission1 but do some postprocessing (underfit)
+* `submission3.csv` simpler model, only use lag t-3 and t-4 (underfit)
 
 **Comparison with Traditional Models**
 
@@ -41,15 +41,15 @@ The model is free to be shared and published on the other channel.
 
 ### How to run
 
-1. Generate combined dataset saved as `ifc_clean.csv` using `prep_data.R`
-2. Evaluate CV and generate prediction using `prediction.ipynb`
-3. Generate three submissions using `submission1.ipynb`, `submission2.ipynb`, and `submission3.ipynb`
+1. Create data/ dir in this project folder, place raw data on data/
+2. Create empty data/temp dir to store temporary files generated from the script
+3. Cross-validate and generate submissions using `model{}.ipynb`
 
 ### Checklists
 
 - [x] The code being submitted was developed in a programming language supported by Jupyter Notebook
 - [x] Any critical comments/markups to the code being submitted are included using markdowns cells
-- [x] The Jupyter Notebook model package is uploaded (file extension: .ipynb) in the "P​rediction and Model Submission" ​section of the entry form under "​Please upload your model from Jupyter Notebook."
+- [x] The Jupyter Notebook model package is uploaded (file extension: .ipynb) in the "P​rediction and Model Submission" ​section of the entry form under "Please upload your model from Jupyter Notebook."
 
 ### License
 
