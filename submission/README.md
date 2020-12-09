@@ -21,8 +21,12 @@ Separate three **LightGBM models** to predict data for t+1, t+2, and t+3
 There are three submissions generated:
 
 * `submission1.csv` average ensemble of all LightGBM model from different seed
-* `submission2.csv` same like submission1 but do some postprocessing (underfit)
+* `submission2.csv` same like submission1 but do some postprocessing (overfit)
 * `submission3.csv` simpler model, only use lag t-3 and t-4 (underfit)
+
+For co-creation, we reevaluate the performance of the model using RMSSE:
+
+* `submission4-rmsse.csv` use L2 loss, RMSE is better but RMSSE is not better compared to existing model, `submission1.csv`
 
 **Comparison with Traditional Models**
 
@@ -49,7 +53,7 @@ The model is free to be shared and published on the other channel.
 
 - [x] The code being submitted was developed in a programming language supported by Jupyter Notebook
 - [x] Any critical comments/markups to the code being submitted are included using markdowns cells
-- [x] The Jupyter Notebook model package is uploaded (file extension: .ipynb) in the "P​rediction and Model Submission" ​section of the entry form under "Please upload your model from Jupyter Notebook."
+- [x] The Jupyter Notebook model package is uploaded (file extension: .ipynb) in the "Prediction and Model Submission" section of the entry form under "Please upload your model from Jupyter Notebook."
 
 ### License
 
