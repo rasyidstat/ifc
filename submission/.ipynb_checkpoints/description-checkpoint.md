@@ -128,7 +128,7 @@ Consider other metrics such as RMSE, or maybe weighted RMSE
 
 ## Describe any strengths or limitations to implementing this model in the field.
 
-Strength: quick and have great accuracy, outperforms other traditional statistical forecasting model. The next step is to scale the model and implement it on the field.
+Strength: very quick and have great accuracy, outperforms other traditional statistical forecasting model. The next step is to scale the model and implement it on the field.
 
 Limitation: produce poorer forecast result at a higher level (region, country level), need to do manual postprocessing
 

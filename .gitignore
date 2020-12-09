@@ -9,3 +9,5 @@ README.html
 check/*
 check.html
 !data/raw/.placeholder
+.DS_Store
+.ipynb_checkpoints*
