@@ -32,6 +32,34 @@ For co-creation, we reevaluate the performance of the model using RMSSE:
 
 Comparison with traditional statistical forecasting model such as: ARIMA, exponential smoothing, Naive, Linear Regression, etc. LightGBM model outperform traditional models on all CV metrics result.
 
+### Co-Creation Concept Note
+
+Model summary and notes:
+
+* Submission number: 3124523221
+* Features engineering is minimalistic: lag (t-1, t-2, t-3, t-4), site, product, district, location (longitude and latitude)
+* Training times: 3 minutes (5x training consists of 4x training for CV, 1x for overall), less than a minute for single training. It is very fast, trained on a single machine MBP 13" 2017.
+* No change on the final model. We tried to add external variables (district population) however there is no improvement. The model might already learns the pattern from the district categorical feature, so adding district population will be redundant and it does not improve the score at all.
+* Robustness of the model
+  * Cross-validation, last four quarter metrics (mean; stdev): RMSE (31.26; 5.24), RMSSE (0.68; 0.04), MASE (1.03; 0.06), details: https://docs.google.com/spreadsheets/d/1vSEl9nkIeK331oMe2yxVnscxdBB_gHMS/edit#gid=270085702
+  * We can try simulation (as Dejan recommended)
+  * We can try input random outliers to the model and evaluate how the forecast behave
+
+Recommendation:
+
+* Develop interval prediction (reference: https://www.kaggle.com/c/m5-forecasting-uncertainty)
+* Evaluate forecast evaluation metrics and inventory metrics (weighted evaluation metrics might be considered, e.g. if each site has different importance whether overstock is better than understock or vice versa)
+* Need to retrain the model with newest data, it will be more challenging if the pattern of the series changes significantly due to COVID-19. In fact, many patterns of time series data in the world changes significantly due to COVID-19, some demands are getting lower and some demands are getting higher. If we use the existing model that we trained from previous data, the forecast for COVID-19 might be inaccurate. Forecasting is very hard, especially when there is unexpected factors in the future that are unpredictable. 
+* Retraining frequency: twice a year / each semester (as Dejan recommended) or four times a year / each quarter
+
+Additional notes:
+
+There are some doubt in machine learning models where in the first until fourth edition of Makrikdakis forecasting competition, most of top models are statistical and combined models. In the fifth edition of Makridakis (M5 competition), most of top models are machine learning models. LightGBM outperforms top statistical method, exponential smoothing, by more than 20% (paper: https://www.researchgate.net/publication/344487258_The_M5_Accuracy_competition_Results_findings_and_conclusions, https://arxiv.org/pdf/2009.07701.pdf). 
+
+Why LightGBM is very superior compared to exponential smoothing and other statistical methods? In the first until fourth edition of Makrikdakis forecasting competition, most of participants were coming from academic background where statistical method is used extensively. The development of machine learning models was still limited, some machine learning models used were SVM, decision tree and Random Forecast. LightGBM is still new (initial release is 2016). It is the first to go and state-of-the-art model for tabular data. It also can be applied to forecasting by doing manual features engineering. One of the reason why LightGBM outperformed exponential smoothing and other statistical methods is because it can learn more features/inputs (e.g. cross-learning and sharing context between different series which are correlated due to same hierarchical structure: product, location, site, etc.). Most of statistical models are trained independently between each series and also have less flexibility in adding more features/inputs to the model compared with LightGBM. In addition, the boosting algorithm itself is superior. 
+
+Deep learning might be good as well for this case. It might be be better if we have more data (deep learning is data hungry). However, due to the complexity and training duration, it is not preferred compared with LightGBM which is faster and easier to be implemented.
+
 ### Recommendation
 
 - LightGBM model is very quick and have great accuracy. It outperforms other traditional statistical forecasting model. The next step is to scale the model and implement it on the field.
